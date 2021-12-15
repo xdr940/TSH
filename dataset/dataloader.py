@@ -18,17 +18,18 @@ class AerDataset:
         self.access_len = 0
         self.dump = Path(config['dump_path'])/config['dump_stem']
 
-    def data_prep(self):
+    def data_prep(self,Do):
+        if not bool(Do):
+            return
+
 
 
         input_columns = ['access','idx', 'time', 'value']
-        universal_columns = ['access', 'units','idx', 'time', 'value']
         not_dup_columns=['value']
         output_columns =   ['access','idx','time']+self.assigned_units
 
         # range = pd.read_csv(self.range,header=None,encoding='utf-16',delimiter="\t")
         dfs = []
-        units = []
         print("--> regexing ...")
         for idx,(item,unit) in enumerate(zip(self.files,self.assigned_units)):
 
@@ -72,7 +73,6 @@ class AerDataset:
 
         access_dict = dict(to_df['access'].value_counts())
         access_names = list(access_dict.keys())
-
         # access selectoin
         random.shuffle(access_names)
         self.access_len = len(access_names)
@@ -94,17 +94,20 @@ class AerDataset:
         ret_df.to_csv(self.dump,index=False)
 
     def load(self):
+        '''
+        load df and compute passes log
+        :return:
+        '''
         print("-> loading")
 
         self.df = pd.read_csv(self.dump)
         print(self.df.describe())
-
-        self.access = list(dict(self.df ['access'].value_counts()).keys())
-        self.access.sort()
-        print("--> access num:{}".format(len(self.access)))
+        self.access_names = list(dict(self.df ['access'].value_counts()).keys())
+        self.access_names.sort()
+        print("--> access num:{}".format(len(self.access_names)))
         # 每个access 可能有多次过境, 将timestamp记录一下, 后面绘图, 或者数据处理都需要用
         self.passes_log={}
-        for name in self.access:
+        for name in self.access_names:
             time_ser = self.df.query("access == '{}'".format(name))['time']
             #相或得到time start or end mask
             fwd = time_ser.diff(-1)
@@ -126,19 +129,37 @@ class AerDataset:
             self.passes_log[name]=[]
             while cnt <len(time_stamp):# 如果有2*n个数, 就说明过境n次
                 self.passes_log[name].append(
-                    [math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1])]
+                    (math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1]))
                 )
                 cnt=cnt+2
 
+        # self.passes_stat()
 
 
-
-
-
+    def passes_stat(self):
+        for key,value in self.passes_log.items():
+            print("{}: {}".format(key,len((value))))
     def __getitem__(self, access):
 
         ret = self.df.query("access=='{}'".format(access))
         return ret
+
+    def get_sublines(self,access_name,value_names,with_time=False):
+        for start, end in self.passes_log[access_name]:
+            if with_time:
+
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[['time']+value_names]
+            else:
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[value_names]
+
+            yield np.array(sub_df)
+                # time_mask_to_dfrec =(df_recons['time'] >= start) *  (df_recons['time'] <= end)
+                # try:
+                #     df_recons[access_name][time_mask] =np.array(sub_df[value_names]) # without nparray, the mapping will fail due to the series default mapping
+                # except:
+                #     print("--> wrong in access: {}".format(access_name))
+
+        pass
     def data_recons(self,config):
         '''
         将prep的数据载入后, 需要通过此函数构建参差表, 具体见readme
@@ -147,12 +168,10 @@ class AerDataset:
         :return:
         '''
         # for G opt
-        pass
 
-        cols = list(self.access)
-        cols.sort()
-        cols.insert(0, 'time')
-        df_recons = pd.DataFrame(columns=cols)
+        time_access_names = self.access_names.copy()
+        time_access_names.insert(0, 'time')
+        df_recons = pd.DataFrame(columns=time_access_names)
 
 
 
@@ -161,13 +180,15 @@ class AerDataset:
         df_recons_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
 
         df_recons['time'] = np.array(df_recons_time).astype(np.int32)
-        for idx,access_name in enumerate(cols[1:]):
-            for start,end in self.passes_log[access_name]:
+
+        # get time lines
+        for access_name in self.access_names:
+            for line,(start,end) in zip(self.get_sublines(access_name,config['base']),self.passes_log[access_name]):
                 sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[config['base']]
 
                 time_mask =(df_recons['time'] >= start) *  (df_recons['time'] <= end)
                 try:
-                    df_recons[access_name][time_mask] =np.array(sub_df[config['base'][1]]) # without nparray, the mapping will fail due to the series default mapping
+                    df_recons[access_name][time_mask] =np.array(sub_df[config['base']]) # without nparray, the mapping will fail due to the series default mapping
                 except:
                     print("--> wrong in access: {}".format(access_name))
         print('over')
