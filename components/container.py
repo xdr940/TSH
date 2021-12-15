@@ -1,6 +1,6 @@
 
 from dataset.dataloader import AerDataset
-from xers.drawer import Drawer
+from components.drawer import Drawer
 import matplotlib.pyplot as plt
 import numpy as np
 class Container:
@@ -12,17 +12,17 @@ class Container:
 
     def __call__(self):
         # step1 prep
-        # self.data.data_prep()
+        self.data.data_prep(self.config['data_prep']['Do'])
 
         # step2. load
         self.data.load()
 
 
         # step3. draw
-        # self.draw()
+        self.draw()
 
         # step4. random access
-        self.data.data_recons(config =self.config['algorithm'] )
+        # self.data.data_recons(config =self.config['algorithm'] )
 
 
     def random_access(self):
@@ -32,9 +32,10 @@ class Container:
 
     def draw(self):
         drawer = Drawer()
+        drawer(self.data,config=self.config['data_show'])
         # drawer.run(self.data.df)
-        for idx, access in enumerate(self.data.access):
-            ret = self.data[access][self.config['data_show']['lines']]  # get nparr
-            drawer(idx, access, ret)
-
-        drawer.run()
+        # for idx, access in enumerate(self.data.access):
+        #     ret = self.data[access][self.config['data_show']['lines']]  # get nparr
+        #     drawer(idx, access, ret)
+        #
+        # drawer.run()

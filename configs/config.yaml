@@ -1,25 +1,26 @@
 data_prep:
+  Do: true
   path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
   #range: "range_lite.dat"
   assigned_units: ['Range (km)','RangeRate (km/sec)']
   files: ["range.dat", "range_rate.dat"]
 #  files: ["range.dat", "range_rate.dat"]
   access_shuffle: True
-  access_portion: [0.2,0.5]
-  time_portion: [0.02,0.5]
+  access_portion: [0.1,0.6]
+  time_portion: [0.02,0.1]
   time_len: 86400 #24*3600
 
 
   #dump
   dump_path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
-  dump_stem: "prep.csv"
+  dump_stem: "prep3.csv"
 
 data_show:
   lines: ['time','Range (km)','RangeRate (km/sec)']
 
 
 algorithm:
-  base: ['time','Range (km)']
+  base: ['Range (km)']
 
   #range_rate: "range_rate_lite.dat"
 

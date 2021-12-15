@@ -1,7 +1,7 @@
 
 from utils.yaml_wrapper import YamlHandler
 import argparse
-from xers.container import Container
+from components.container import Container
 
 
 def main(args):
