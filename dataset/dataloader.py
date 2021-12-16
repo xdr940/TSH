@@ -3,6 +3,8 @@ from path import Path
 import random
 import math
 import numpy as np
+import datetime
+import os
 class AerDataset:
     def __init__(self,config):
         pass
@@ -16,10 +18,23 @@ class AerDataset:
         self.time_portion = config['time_portion']
         self.time_len = config['time_len']
         self.access_len = 0
-        self.dump = Path(config['dump_path'])/config['dump_stem']
 
-    def data_prep(self,Do):
-        if not bool(Do):
+        #time_dir = datetime.datetime.now().strftime("%m-%d-%H:%M")
+        self.out_dir_path = Path(config['dump_path']) #/ time_dir
+        self.out_dir_path.mkdir_p()
+        self.dump_file = self.out_dir_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
+
+
+    def data_append_value(self,df):
+        #append the data to df
+        data = 10000000/df['Range (km)'].astype(float)**2
+        value = pd.Series(name='1/d2',data=data)
+        df =pd.concat([df,value],axis=1)
+        return df
+
+
+    def data_prep(self,data_prep_config):
+        if not bool(data_prep_config['Do']):
             return
 
 
@@ -74,6 +89,7 @@ class AerDataset:
         access_dict = dict(to_df['access'].value_counts())
         access_names = list(access_dict.keys())
         # access selectoin
+        random.seed(data_prep_config['random_seed'])
         random.shuffle(access_names)
         self.access_len = len(access_names)
         start = math.floor(self.access_len*self.access_portion[0])
@@ -91,7 +107,14 @@ class AerDataset:
 
         print("--> time total len:{}, selected len:{}".format(self.time_len,end-start))
 
-        ret_df.to_csv(self.dump,index=False)
+        #log
+
+        # ret_df = self.data_append_value(ret_df)
+
+
+        ret_df.to_csv(self.dump_file, index=False)
+
+
 
     def load(self):
         '''
@@ -100,7 +123,7 @@ class AerDataset:
         '''
         print("-> loading")
 
-        self.df = pd.read_csv(self.dump)
+        self.df = pd.read_csv(self.dump_file)
         print(self.df.describe())
         self.access_names = list(dict(self.df ['access'].value_counts()).keys())
         self.access_names.sort()
@@ -133,12 +156,14 @@ class AerDataset:
                 )
                 cnt=cnt+2
 
-        # self.passes_stat()
+        self.passes_stat()
 
 
     def passes_stat(self):
         for key,value in self.passes_log.items():
             print("{}: {}".format(key,len((value))))
+
+
     def __getitem__(self, access):
 
         ret = self.df.query("access=='{}'".format(access))
@@ -174,7 +199,6 @@ class AerDataset:
         df_recons = pd.DataFrame(columns=time_access_names)
 
 
-
         time_min = math.ceil(self.df['time'].min())
         time_max = math.floor(self.df['time'].max())
         df_recons_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
@@ -183,15 +207,16 @@ class AerDataset:
 
         # get time lines
         for access_name in self.access_names:
-            for line,(start,end) in zip(self.get_sublines(access_name,config['base']),self.passes_log[access_name]):
-                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[config['base']]
+            for line,(start,end) in zip(self.get_sublines(access_name,config['algorithm_base']),self.passes_log[access_name]):
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[['time']+config['algorithm_base']]
 
                 time_mask =(df_recons['time'] >= start) *  (df_recons['time'] <= end)
                 try:
-                    df_recons[access_name][time_mask] =np.array(sub_df[config['base']]) # without nparray, the mapping will fail due to the series default mapping
+                    df_recons[access_name][time_mask] =np.array(sub_df[config['algorithm_base'][0]]) # without nparray, the mapping will fail due to the series default mapping
                 except:
                     print("--> wrong in access: {}".format(access_name))
         print('over')
+        self.df_recons = df_recons
 
 
 

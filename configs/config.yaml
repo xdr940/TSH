@@ -1,26 +1,28 @@
-data_prep:
-  Do: true
-  path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
-  #range: "range_lite.dat"
-  assigned_units: ['Range (km)','RangeRate (km/sec)']
-  files: ["range.dat", "range_rate.dat"]
-#  files: ["range.dat", "range_rate.dat"]
-  access_shuffle: True
-  access_portion: [0.1,0.6]
-  time_portion: [0.02,0.1]
-  time_len: 86400 #24*3600
 
 
-  #dump
-  dump_path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
-  dump_stem: "prep3.csv"
 
-data_show:
-  lines: ['time','Range (km)','RangeRate (km/sec)']
+dump_path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu/1234"
+dump_stem: "prep"
+random_seed: 14
+
+#prep
+Do: true
+path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
+assigned_units: ['Range (km)','RangeRate (km/sec)']
+files: ["range.dat", "range_rate.dat"]
+access_shuffle: True
+access_portion: [0,0.6]
+time_portion: [0,0.0012]
+time_len: 86400 #24*3600
 
 
-algorithm:
-  base: ['Range (km)']
 
-  #range_rate: "range_rate_lite.dat"
+#data show
+#data_show_lines: ['time','Range (km)','RangeRate (km/sec)']
+data_show_lines: ['time','Range (km)']
+
+
+#alg
+algorithm_base: ['Range (km)']
+
 

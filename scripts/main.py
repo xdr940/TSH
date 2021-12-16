@@ -1,13 +1,34 @@
 
 from utils.yaml_wrapper import YamlHandler
 import argparse
-from components.container import Container
 
+from dataset.dataloader import AerDataset
+from components.drawer import Drawer
+import matplotlib.pyplot as plt
+import numpy as np
 
 def main(args):
-    config = YamlHandler(args.settings).read_yaml()
-    container = Container(config=config)
-    container()
+    yml = YamlHandler(args.settings)
+    config = yml.read_yaml()
+
+
+    # load data
+    data = AerDataset(config)
+
+    #split data
+    data.data_prep(config)
+
+    # split data reload and process
+    data.load()
+    data.data_recons(config)
+
+    drawer = Drawer()
+    drawer(data, config=config)
+
+
+    yml.save_log(data.out_dir_path)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")
     parser.add_argument("--settings", default='../configs/config.yaml')
