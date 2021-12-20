@@ -1,5 +1,15 @@
 import numpy as np
+a = np.array([np.nan,3,np.nan, 4, 2])
+print(a)
+print('\n')
+b = np.argsort(a)
+print(b)
 
-arr = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+import numpy as np
+a = np.array([[np.nan,3,np.nan, 4, 2],[np.nan,4,np.nan, 3, 2]])
+print(a)
+print('\n')
+b = np.argsort(a)
+print(b)
 
-print(arr)
+print(1e3)

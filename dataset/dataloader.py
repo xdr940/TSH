@@ -27,8 +27,14 @@ class AerDataset:
 
     def data_append_value(self,df):
         #append the data to df
-        data = 10000000/df['Range (km)'].astype(float)**2
-        value = pd.Series(name='1/d2',data=data)
+        # freq = 12e9
+        # opt_freq = 3e8
+        # Pr = (opt_freq/freq)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
+        # data = np.log10(Pr*1000)
+        data = 800-  df['Range (km)'].astype(float)
+        # data = 92.45+20*np.log10(df['Range (km)'].astype(float)*1e3)+20*np.log10(freq)
+        # data = 10000000/df['Range (km)'].astype(float)**2
+        value = pd.Series(name='Max - Range (km)',data=data)
         df =pd.concat([df,value],axis=1)
         return df
 
@@ -109,7 +115,7 @@ class AerDataset:
 
         #log
 
-        # ret_df = self.data_append_value(ret_df)
+        ret_df = self.data_append_value(ret_df)
 
 
         ret_df.to_csv(self.dump_file, index=False)
@@ -178,14 +184,14 @@ class AerDataset:
                 sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[value_names]
 
             yield np.array(sub_df)
-                # time_mask_to_dfrec =(df_recons['time'] >= start) *  (df_recons['time'] <= end)
+                # time_mask_to_dfrec =(df_align['time'] >= start) *  (df_align['time'] <= end)
                 # try:
-                #     df_recons[access_name][time_mask] =np.array(sub_df[value_names]) # without nparray, the mapping will fail due to the series default mapping
+                #     df_align[access_name][time_mask] =np.array(sub_df[value_names]) # without nparray, the mapping will fail due to the series default mapping
                 # except:
                 #     print("--> wrong in access: {}".format(access_name))
 
         pass
-    def data_recons(self,config):
+    def data_align(self,config):
         '''
         将prep的数据载入后, 需要通过此函数构建参差表, 具体见readme
 
@@ -196,28 +202,35 @@ class AerDataset:
 
         time_access_names = self.access_names.copy()
         time_access_names.insert(0, 'time')
-        df_recons = pd.DataFrame(columns=time_access_names)
+        df_align = pd.DataFrame(columns=time_access_names)
 
 
         time_min = math.ceil(self.df['time'].min())
         time_max = math.floor(self.df['time'].max())
-        df_recons_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
+        df_align_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
 
-        df_recons['time'] = np.array(df_recons_time).astype(np.int32)
+        df_align['time'] = np.array(df_align_time).astype(np.int32)
 
         # get time lines
         for access_name in self.access_names:
             for line,(start,end) in zip(self.get_sublines(access_name,config['algorithm_base']),self.passes_log[access_name]):
                 sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[['time']+config['algorithm_base']]
 
-                time_mask =(df_recons['time'] >= start) *  (df_recons['time'] <= end)
+                time_mask =(df_align['time'] >= start) *  (df_align['time'] <= end)
                 try:
-                    df_recons[access_name][time_mask] =np.array(sub_df[config['algorithm_base'][0]]) # without nparray, the mapping will fail due to the series default mapping
+                    df_align[access_name][time_mask] =np.array(sub_df[config['algorithm_base'][0]]) # without nparray, the mapping will fail due to the series default mapping
                 except:
                     print("--> wrong in access: {}".format(access_name))
         print('over')
-        self.df_recons = df_recons
+        self.df_align = df_align
 
+    def alg(self):
+        pass
+        self.argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
+        self.tk_mask1 = np.abs(self.argsort[1:] - self.argsort[:-1])
+        self.tk_mask = self.tk_mask1.sum(1) >0
+        self.tks = self.df_align['time'].iloc[:-1][np.abs(self.argsort[1:] - self.argsort[:-1]).sum(1)>0]
+        pass
 
 
     def filter(self):

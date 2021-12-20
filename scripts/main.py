@@ -6,6 +6,7 @@ from dataset.dataloader import AerDataset
 from components.drawer import Drawer
 import matplotlib.pyplot as plt
 import numpy as np
+import  pandas as pd
 
 def main(args):
     yml = YamlHandler(args.settings)
@@ -20,7 +21,12 @@ def main(args):
 
     # split data reload and process
     data.load()
-    data.data_recons(config)
+
+
+
+
+    data.data_align(config)
+    data.alg()
 
     drawer = Drawer()
     drawer(data, config=config)
