@@ -89,9 +89,9 @@ class AerDataset:
 
         to_df = pd.concat(dfs,axis=1)
         to_df=to_df[output_columns]
-
-
-
+        to_df.replace(' ', 'nan', inplace=True)
+        to_df[['time']] = to_df[['time']].astype(float)
+        to_df = to_df.query('time%1==0')
         access_dict = dict(to_df['access'].value_counts())
         access_names = list(access_dict.keys())
         # access selectoin
@@ -107,8 +107,7 @@ class AerDataset:
         #time selection
         start = math.floor(self.time_len*self.time_portion[0])
         end = math.ceil(self.time_len*self.time_portion[1])
-        to_df.replace(' ','nan',inplace=True)
-        to_df[['time']] = to_df[['time']].astype(float)
+
         ret_df = to_df.query('{} in access and time >= {} and time <={}  '.format(access_names,start,end))
 
         print("--> time total len:{}, selected len:{}".format(self.time_len,end-start))
@@ -227,9 +226,25 @@ class AerDataset:
     def alg(self):
         pass
         self.argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
-        self.tk_mask1 = np.abs(self.argsort[1:] - self.argsort[:-1])
-        self.tk_mask = self.tk_mask1.sum(1) >0
-        self.tks = self.df_align['time'].iloc[:-1][np.abs(self.argsort[1:] - self.argsort[:-1]).sum(1)>0]
+        tk_mask = np.abs(self.argsort - np.concatenate([self.argsort[0].reshape(1,self.argsort.shape[1]),self.argsort[:-1]],0)).sum(1) >0
+
+        tks = self.df_align['time'][tk_mask]
+        passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
+        # max_tks = passes_log_np.max()
+        # min_tks = passes_log_np.min()
+
+        #矫正一下离境时刻, 原来的离境时刻timestamp都大1s
+        for k_item in tks.items():
+            if k_item[1] in  list(passes_log_np[:,1]+1):
+                tks[k_item[0]] -=1
+
+        # self.tks = pd.concat([pd.Series([min_tks],[0]),self.tks,pd.Series([max_tks],[max_tks-min_tks])])
+        set_tks = set(tks)
+        set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]))
+        self.inter_stamps = list(set_tks.difference(set_passes_logs))
+        self.inter_stamps.sort()
+        self.tks = list(set_tks|set_passes_logs)
+        self.tks.sort()
         pass
 
 
