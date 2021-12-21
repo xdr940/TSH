@@ -22,14 +22,15 @@ def main(args):
     # split data reload and process
     data.load()
 
-
+    drawer = Drawer()
+    drawer(data, config=config)
+    data.fig = drawer.get_handle()
 
 
     data.data_align(config)
     data.alg()
 
-    drawer = Drawer()
-    drawer(data, config=config)
+
 
 
     yml.save_log(data.out_dir_path)

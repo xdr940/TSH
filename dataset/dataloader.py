@@ -226,25 +226,52 @@ class AerDataset:
     def alg(self):
         pass
         self.argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
-        tk_mask = np.abs(self.argsort - np.concatenate([self.argsort[0].reshape(1,self.argsort.shape[1]),self.argsort[:-1]],0)).sum(1) >0
+        tk_mask = np.abs(self.argsort - np.concatenate([self.argsort[0].reshape(1,self.argsort.shape[1]),self.argsort[:-1]],0))>0
+        tk_mask_zip = tk_mask.sum(1) >0
 
-        tks = self.df_align['time'][tk_mask]
+        tks = self.df_align['time'][tk_mask_zip]
         passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
-        # max_tks = passes_log_np.max()
-        # min_tks = passes_log_np.min()
+
 
         #矫正一下离境时刻, 原来的离境时刻timestamp都大1s
         for k_item in tks.items():
             if k_item[1] in  list(passes_log_np[:,1]+1):
                 tks[k_item[0]] -=1
 
-        # self.tks = pd.concat([pd.Series([min_tks],[0]),self.tks,pd.Series([max_tks],[max_tks-min_tks])])
-        set_tks = set(tks)
-        set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]))
-        self.inter_stamps = list(set_tks.difference(set_passes_logs))
-        self.inter_stamps.sort()
-        self.tks = list(set_tks|set_passes_logs)
-        self.tks.sort()
+        max_tks = passes_log_np.max()
+        min_tks = passes_log_np.min()
+        total_tks = pd.concat([pd.Series([min_tks],[0]),tks,pd.Series([max_tks],[max_tks-min_tks])])
+
+        set_total_tks = set(total_tks)
+        set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]).astype(np.int64))
+
+        self.inter_tks = list(set_total_tks.difference(set_passes_logs))
+        self.inter_tks.sort()#19
+
+        self.total_tks = list(set_total_tks|set_passes_logs)
+        self.total_tks = [int(item) for item in self.total_tks]
+        self.total_tks.sort()#49
+
+        inter_tk_mask = np.array(self.inter_tks) - min_tks
+
+        query_table = pd.DataFrame(self.argsort * tk_mask).loc[inter_tk_mask]
+
+        inter_tk2access={}
+
+        for index,row in query_table.iterrows():
+            inter_tk2access[index+min_tks]=[]
+            acc_num = list(row[row > 0])
+            for num in acc_num:
+                inter_tk2access[index+min_tks].append(self.access_names[num])
+            pass
+
+
+     
+
+
+
+
+
         pass
 
 

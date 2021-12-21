@@ -7,8 +7,9 @@ class Drawer:
         self.fig = plt.figure(1)
 
         pass
-    def run(self):
-        plt.show()
+    def get_handle(self):
+        return self.fig
+        # plt.show()
 
         pass
 
@@ -31,7 +32,7 @@ class Drawer:
             plt.legend(data.access_names)
             plt.title(col)
 
-        plt.show()
+        # plt.show()
             # line.set_drawstyle('_draw_steps_pre')
 
         pass
