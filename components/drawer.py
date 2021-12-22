@@ -29,8 +29,8 @@ class Drawer:
 
                     plt.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
                 # print('idx: {}, mod:{}'.format(idx,idx%(len(self.colors))))
-            plt.legend(data.access_names)
-            plt.title(col)
+            # plt.legend(data.access_names)
+            # plt.title(col)
 
         # plt.show()
             # line.set_drawstyle('_draw_steps_pre')

@@ -28,9 +28,9 @@ def main(args):
 
 
     data.data_align(config)
-    data.alg()
+    data.pre_alg()
 
-
+    data.build_graph()
 
 
     yml.save_log(data.out_dir_path)
