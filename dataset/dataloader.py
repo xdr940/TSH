@@ -101,7 +101,7 @@ class AerDataset:
         start = math.floor(self.access_len*self.access_portion[0])
         end = math.ceil(self.access_len*self.access_portion[1])
         access_names = access_names[start:end]
-        print("--> access total num:{}, selected num{}".format(self.access_len,len(access_names)))
+        # print("--> access total num:{}, selected num{}".format(self.access_len,len(access_names)))
 
 
         #time selection
@@ -157,11 +157,11 @@ class AerDataset:
             self.passes_log[name]=[]
             while cnt <len(time_stamp):# 如果有2*n个数, 就说明过境n次
                 self.passes_log[name].append(
-                    (math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1]))
+                    (math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1]))# 可能有多次过境, 所以是append
                 )
                 cnt=cnt+2
 
-        self.passes_stat()
+        # self.passes_stat()
 
 
     def passes_stat(self):
@@ -221,12 +221,13 @@ class AerDataset:
                 except:
                     print("--> wrong in access: {}".format(access_name))
         print('over')
+
+        #return
         self.df_align = df_align
 
-    def alg(self):
-        pass
-        self.argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
-        tk_mask = np.abs(self.argsort - np.concatenate([self.argsort[0].reshape(1,self.argsort.shape[1]),self.argsort[:-1]],0))>0
+    def pre_alg(self):
+        argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
+        tk_mask = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
         tk_mask_zip = tk_mask.sum(1) >0
 
         tks = self.df_align['time'][tk_mask_zip]
@@ -238,6 +239,7 @@ class AerDataset:
             if k_item[1] in  list(passes_log_np[:,1]+1):
                 tks[k_item[0]] -=1
 
+        #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
         max_tks = passes_log_np.max()
         min_tks = passes_log_np.min()
         total_tks = pd.concat([pd.Series([min_tks],[0]),tks,pd.Series([max_tks],[max_tks-min_tks])])
@@ -245,34 +247,86 @@ class AerDataset:
         set_total_tks = set(total_tks)
         set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]).astype(np.int64))
 
+        # inter tks 即函数交点
         self.inter_tks = list(set_total_tks.difference(set_passes_logs))
         self.inter_tks.sort()#19
 
+        # total tks 是包括了函数交点和 函数起点终点(过境时刻, 离境时刻)
         self.total_tks = list(set_total_tks|set_passes_logs)
         self.total_tks = [int(item) for item in self.total_tks]
         self.total_tks.sort()#49
 
         inter_tk_mask = np.array(self.inter_tks) - min_tks
 
-        query_table = pd.DataFrame(self.argsort * tk_mask).loc[inter_tk_mask]
+        query_table = pd.DataFrame(argsort * tk_mask).loc[inter_tk_mask]
 
+
+        # get inter_tk2access, query what the access at this timestamp(tk), and the timestamp in inter_timestamp (access function intersect)
         inter_tk2access={}
-
         for index,row in query_table.iterrows():
             inter_tk2access[index+min_tks]=[]
             acc_num = list(row[row > 0])
             for num in acc_num:
                 inter_tk2access[index+min_tks].append(self.access_names[num])
-            pass
+
+        #  same with after one, but the timestamp in star/end timestamps
+        ed_tk2access={}
+        for k,passes in self.passes_log.items():
+            for start,end in passes:
+                if start not in ed_tk2access.keys():
+                    ed_tk2access[start] =[]
+                ed_tk2access[start].append(k)
+
+                if end not in ed_tk2access.keys():
+                    ed_tk2access[end] = []
+                ed_tk2access[end].append(k)
+
+        tk2acc = inter_tk2access.copy()
+        tk2acc.update(ed_tk2access)
+
+        acc2tk={}
+        tmp_df = self.df_align.query('time in {} '.format(self.total_tks))
+        for col_name,col_value in tmp_df.iteritems():
+            if col_name =='time':
+                continue
+            acc2tk[col_name]= list(tmp_df['time'][col_value>0])
+        # then, the acc2tk[acc] is include all tks at the function coverage, thus we should filter out the point that did not on the function
+        for acc,tks in acc2tk.items():
+
+            cnt = 0
+            while cnt < len(acc2tk[acc]):
+
+                if acc not in tk2acc[acc2tk[acc][cnt]]:
+                    acc2tk[acc][cnt] = -1
+                cnt+=1
+                    # break
+            while -1 in acc2tk[acc]:
+                acc2tk[acc].remove(-1)
 
 
-     
+        self.acc2tk = acc2tk
+        self.tk2acc = tk2acc
+        for access in self.access_names:
+           self.acc2tk[access].sort()
+        for tk in self.total_tks:
+            self.tk2acc[tk].sort()
 
-
-
-
-
+    def build_graph(self):
+        G_acc = {}
+        for tin in self.total_tks:
+            for acc in self.tk2acc[tin]:
+                if tin not in self.acc2tk[acc]:
+                    continue
+                for tout in self.acc2tk[acc]:
+                    if tin >= tout:
+                        continue
+                    if (tin, tout) not in G_acc:
+                        G_acc[tin, tout] = []
+                    G_acc[tin, tout].append(acc)
+                    break
         pass
+
+
 
 
     def filter(self):
