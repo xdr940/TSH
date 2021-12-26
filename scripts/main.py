@@ -4,6 +4,7 @@ import argparse
 
 from dataset.dataloader import AerDataset
 from components.drawer import Drawer
+from components.accessor import Accessor
 import matplotlib.pyplot as plt
 import numpy as np
 import  pandas as pd
@@ -23,15 +24,17 @@ def main(args):
     data.load()
 
     drawer = Drawer()
-    drawer(data, config=config)
-    data.fig = drawer.get_handle()
+    data.fig = drawer.drawAer(data, config=config)
 
 
     data.data_align(config)
     data.pre_alg()
 
-    data.build_graph()
 
+    accessor = Accessor(data)
+    # accessor.build_graph()
+    # fig = drawer.drawGraph(accessor.data.nx_G)
+    plt.show()
 
     yml.save_log(data.out_dir_path)
 
