@@ -5,6 +5,8 @@ import math
 import numpy as np
 import datetime
 import os
+import networkx as nx
+
 class AerDataset:
     def __init__(self,config):
         pass
@@ -74,7 +76,7 @@ class AerDataset:
                 df['access'] = df['access'].str.replace(r'RangeRatekmsec',r'')
                 df['access'] = df['access'].str.replace(r'\s+', r'', regex=True)
 
-
+            df['access'] = df['access'].str.replace('ss3-To-','')
             if idx>0:
                 df=df[not_dup_columns]
 
@@ -226,6 +228,17 @@ class AerDataset:
         self.df_align = df_align
 
     def pre_alg(self):
+        '''
+        算法数据准备, 得到邻接表
+
+        args:
+            self.df_align
+
+        :return:
+            self.total_tks
+            self.acc2tk
+            self.tk2acc
+        '''
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
         tk_mask = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
         tk_mask_zip = tk_mask.sum(1) >0
@@ -248,15 +261,15 @@ class AerDataset:
         set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]).astype(np.int64))
 
         # inter tks 即函数交点
-        self.inter_tks = list(set_total_tks.difference(set_passes_logs))
-        self.inter_tks.sort()#19
+        inter_tks = list(set_total_tks.difference(set_passes_logs))
+        inter_tks.sort()#19
 
         # total tks 是包括了函数交点和 函数起点终点(过境时刻, 离境时刻)
-        self.total_tks = list(set_total_tks|set_passes_logs)
-        self.total_tks = [int(item) for item in self.total_tks]
-        self.total_tks.sort()#49
+        total_tks = list(set_total_tks|set_passes_logs)
+        total_tks = [int(item) for item in total_tks]
+        total_tks.sort()#49
 
-        inter_tk_mask = np.array(self.inter_tks) - min_tks
+        inter_tk_mask = np.array(inter_tks) - min_tks
 
         query_table = pd.DataFrame(argsort * tk_mask).loc[inter_tk_mask]
 
@@ -285,7 +298,7 @@ class AerDataset:
         tk2acc.update(ed_tk2access)
 
         acc2tk={}
-        tmp_df = self.df_align.query('time in {} '.format(self.total_tks))
+        tmp_df = self.df_align.query('time in {} '.format(total_tks))
         for col_name,col_value in tmp_df.iteritems():
             if col_name =='time':
                 continue
@@ -306,35 +319,20 @@ class AerDataset:
 
         self.acc2tk = acc2tk
         self.tk2acc = tk2acc
+        self.total_tks = total_tks
+        self.total_tks.sort()
         for access in self.access_names:
            self.acc2tk[access].sort()
-        for tk in self.total_tks:
+        for tk in total_tks:
             self.tk2acc[tk].sort()
 
-    def build_graph(self):
-        G_acc = {}
-        for tin in self.total_tks:
-            for acc in self.tk2acc[tin]:
-                if tin not in self.acc2tk[acc]:
-                    continue
-                for tout in self.acc2tk[acc]:
-                    if tin >= tout:
-                        continue
-                    if (tin, tout) not in G_acc:
-                        G_acc[tin, tout] = []
-                    G_acc[tin, tout].append(acc)
-                    break
+
+
         pass
 
 
 
 
-    def filter(self):
-        '''
-        只选取部分access, 部分时间的数据, 用来简单测试
-        :return:
-        '''
-        pass
 
 
 
