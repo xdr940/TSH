@@ -2,10 +2,11 @@ import unittest
 from utils.yaml_wrapper import YamlHandler
 import argparse
 
-
+import matplotlib.pyplot as plt
 
 from dataset.dataloader import AerDataset
 from components.accessor import Accessor
+from components.drawer import Drawer
 
 
 parser = argparse.ArgumentParser(description="stk-conn")
@@ -74,11 +75,17 @@ class TestDataloader(unittest.TestCase):
         data.pre_alg()
 
         accessor = Accessor(data)
+        accessor.build_graph()
+        accessor.trave()
 
-        self.assertEqual(accessor.tks_half('s5013','last'),[8862,8875])
-        self.assertEqual(accessor.tks_half('s2517','last'),[9514,9524,9535])
-
-        self.assertEqual(accessor.s_next('s2517'),['s5110'])
+        # drawer = Drawer()
+        # fig = drawer.drawGraph(accessor.G)
+        #
+        # accessor.s_prev('s5013')
+        # self.assertEqual(accessor.tks_half('s5013','last'),[8862,8875])
+        # self.assertEqual(accessor.tks_half('s2517','last'),[9514,9524,9535])
+        #
+        # self.assertEqual(accessor.s_next('s2517'),['s5110'])
 
         # accessor.tks_half()
 

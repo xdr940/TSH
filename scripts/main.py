@@ -32,8 +32,8 @@ def main(args):
 
 
     accessor = Accessor(data)
-    # accessor.build_graph()
-    # fig = drawer.drawGraph(accessor.data.nx_G)
+    accessor.build_graph()
+    fig = drawer.drawGraph(accessor.G,position = accessor.position)
     plt.show()
 
     yml.save_log(data.out_dir_path)

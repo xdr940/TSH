@@ -22,7 +22,7 @@ class Drawer:
         for sub_idx, col in enumerate(config['data_show_lines'][1:]): #different value lines
             plt.subplot(len(config['data_show_lines'])-1, 1, sub_idx + 1)  # without time
 
-            for idx, access_name in enumerate(self.access_names):# different access lines in a value
+            for idx, access_name in enumerate(data.access_names):# different access lines in a value
                 for line in data.get_sublines(access_name,[col],with_time=True):# different subline in a line
 
 
@@ -35,7 +35,11 @@ class Drawer:
             # line.set_drawstyle('_draw_steps_pre')
 
 
-    def drawGraph(self,G):
+    def drawGraph(self,G,position=None):
         fig = plt.figure(2)
-        nx.draw(G)
+        if position ==None:
+            position = nx.spring_layout(G)
+
+        nx.draw(G,
+                pos=position,node_color = 'b', edge_color = 'r', with_labels = True,font_size = 18, node_size = 120)
         return fig
