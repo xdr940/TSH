@@ -23,8 +23,7 @@ def main(args):
     # split data reload and process
     data.load()
 
-    drawer = Drawer()
-    data.fig = drawer.drawAer(data, config=config)
+
 
 
     data.data_align(config)
@@ -33,6 +32,10 @@ def main(args):
 
     accessor = Accessor(data)
     accessor.build_graph()
+    accessor.run()
+    accessor.result_stat()
+    drawer = Drawer()
+    data.fig = drawer.drawAer(data, config=config,position=accessor.position)
     fig = drawer.drawGraph(accessor.G,position = accessor.position)
     plt.show()
 

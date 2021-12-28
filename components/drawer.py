@@ -15,7 +15,7 @@ class Drawer:
     def __get_data_item__(self):
         pass
 
-    def drawAer(self,data,config ):
+    def drawAer(self,data,config,position=None ):
 
         fig = plt.figure(1)
         # time_arr = np.array(sub_df).T
@@ -27,8 +27,11 @@ class Drawer:
 
 
                     plt.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
+                    if position:
+                        plt.text(position[access_name][0]*10+8640,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
                 # print('idx: {}, mod:{}'.format(idx,idx%(len(self.colors))))
-            plt.legend(data.access_names)
+
+            # plt.legend(data.access_names)
             # plt.title(col)
         return fig
         # plt.show()

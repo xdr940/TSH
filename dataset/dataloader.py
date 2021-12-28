@@ -239,6 +239,7 @@ class AerDataset:
             self.acc2tk
             self.tk2acc
         '''
+
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
         tk_mask = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
         tk_mask_zip = tk_mask.sum(1) >0
@@ -296,7 +297,6 @@ class AerDataset:
 
         tk2acc = inter_tk2access.copy()
         tk2acc.update(ed_tk2access)
-
         acc2tk={}
         tmp_df = self.df_align.query('time in {} '.format(total_tks))
         for col_name,col_value in tmp_df.iteritems():
