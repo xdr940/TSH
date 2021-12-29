@@ -2,45 +2,18 @@
 import networkx as nx
 import pandas as pd
 import math
+from tqdm import tqdm
 class TimeStamp:
     def __init__(self):
         pass
 
 
-class Accessor:
+class DpSolver:
     def __init__(self,data,alg_base="Max - Range (km)"):
         self.data = data
         self.alg_base =alg_base
         self.position=None
         pass
-
-
-
-
-
-
-    def t_prev(self,i_access,tj):
-        '''
-        tj在si_prev的后面,and tj在si的前面, return si_prev last half
-        :param i_access:
-        :param tj:
-        :return:
-        '''
-        for acc in self.data.tk2acc[tj] :# 顶多两次
-            if acc ==i_access:
-                continue
-            else:
-                return self.tks_half(acc,'first')
-
-        pass
-    def t_next(self,i_access,tj):
-        '''
-
-        :param i_access:
-        :param tj:
-        :return:
-        '''
-        return self.tks_half(i_access,'last')
 
 
     def s_prev(self,i_access,tj=None):
@@ -179,12 +152,11 @@ class Accessor:
                             if self.si_max_tk(s_at_tk[i]) < time:
                                 # if s_at_tk[0] in self.s_prev(s_at_tk[1]) and s_at_tk[1] in self.s_next(s_at_tk[0]):
                                 self.G.add_weighted_edges_from([(s_at_tk[i], s_at_tk[j], time)])
-                                print(s_at_tk[i], s_at_tk[j], time)
-                                # elif s_at_tk[1] in self.s_prev(s_at_tk[0]) and s_at_tk[0] in self.s_next(s_at_tk[1]):
+                                # print(s_at_tk[i], s_at_tk[j], time)
                             elif self.si_max_tk(s_at_tk[j]) < time:
 
                                 self.G.add_weighted_edges_from([(s_at_tk[j], s_at_tk[i], time)])
-                                print(s_at_tk[j], s_at_tk[i], time)
+                                # print(s_at_tk[j], s_at_tk[i], time)
 
 
                 # 包括2个以上卫星函数相交
@@ -235,8 +207,8 @@ class Accessor:
 
         print("--> graph finished")
         print(self.G)
-        print("-> graph roots:{}".format(self.roots))
-        print("-> graph leaves:{}".format(self.leaves))
+        print("-> graph roots num:{}\n {}".format(len(self.roots),self.roots))
+        print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
 
 
@@ -273,33 +245,24 @@ class Accessor:
             k[root] = k['none'] + 1
             route[root] = 'none'
 
-        for acc in self.trave():
+        for acc in tqdm(self.trave()):
             pre_sis = self.s_prev(acc)
             tj_next = self.data.acc2tk[acc][-1]
 
             if len(pre_sis)==0  : # 没有前置si,acc即为相位最靠前的卫星
-                # if self.data.acc2tk[acc][0]==self.data.total_tks[0]:
-                # if last_acc =='none':
+
                 tj = self.data.acc2tk[acc][0]
                 opt[acc] =(k['none']* opt['none'] + self.integ(acc,tj,tj_next))/(k['none']+1)
                 k[acc] = k['none']+1
                 route[acc] = 'none'
-                # else: #断头, 有
-                #     tj = self.data.acc2tk[acc][0]
-                #     opt[acc] = (k[last_acc] * opt[last_acc] + self.integ(acc, tj, tj_next)) / (k[last_acc] + 2)
-                #     k[acc] = k[last_acc] + 2
-                #     route[acc] = 'none'
-                #     last_accs.append(last_acc)
-                #     print("interrupt:{}".format(acc))
-                #     pass
+
             else:
                 tmp_opt = 0
                 arg_opt=0
                 for pre_si in pre_sis:
-                    # if pre_si not in opt.keys():
-                    #     opt[pre_si] = 0
-                    tj = self.G.edges[pre_si,acc]['weight']
 
+
+                    tj = self.G.edges[pre_si,acc]['weight']
                     acc_last_integ = self.integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
                     integ = self.integ(acc,tj,tj_next)
                     tmp = (k[pre_si]*opt[pre_si] - acc_last_integ + integ)/(k[pre_si]+1)
@@ -324,7 +287,8 @@ class Accessor:
     def result_stat(self):
 
         # 记录所有最大联通子图的可能路径
-        paths = {}
+        print("--> result stat...")
+        paths = {} # all paths in all sub graphs
         for leaf in self.leaves:
             paths[leaf]=[]
             paths[leaf].append(leaf)
@@ -335,7 +299,7 @@ class Accessor:
                 end_node = self.route[end_node]
             paths[leaf].reverse()
 
-        selected_path={}
+        candidate_paths={}
         for root in self.roots:
             argmax_leaf = None
             sub_opt = 0
@@ -343,14 +307,46 @@ class Accessor:
                 if root in paths[leaf] and self.opt[leaf]>sub_opt :
                     sub_opt = self.opt[leaf]
                     argmax_leaf = leaf
-            selected_path[root] = argmax_leaf
+            candidate_paths[root] = argmax_leaf
 
-        for leaf,path in paths.items():
-            for root,leaf2 in selected_path.items():
-                if leaf2 ==leaf and root in path:
-                    print(path)
+        #选择候选路径中几个最大覆盖的多个路径为最后结果
+        solution = []
+        hop=[]
+        opt_values = []
+        for index_node,path in paths.items():
+            for root,leaf in candidate_paths.items():
+                if leaf ==index_node and root in path:
+                    # best paths cover all sub graphs
+                    print("-> (sub) path:\n{}".format(path))
+                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf],self.k[leaf]))
+                    solution.append(path)
+                    hop.append(self.k[leaf])
+                    opt_values.append(self.opt[leaf])
 
-        # print("-> selected_path: {}".format(paths))
 
 
-        pass
+
+
+        # 找到解的分量的交点,后面移动到 data prep 更合适
+        inter_tk_dict={}
+        cnt = 0
+        for path in solution:
+            for s_prev,s_next in zip(path[1:-1],path[2:]):
+                while True:
+                    if self.is_equal(s_prev,s_next,self.data.inter_tks[cnt]):
+                        inter_tk_dict[s_prev,s_next] = self.data.inter_tks[cnt]
+                        cnt+=1
+                        break
+                    else:
+                        cnt+=1
+
+
+        #returns
+        self.solution = solution
+        self.hop = hop
+        self.opt_values = opt_values
+        self.inter_tk_dict = inter_tk_dict
+
+
+
+
