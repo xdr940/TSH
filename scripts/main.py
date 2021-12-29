@@ -4,7 +4,7 @@ import argparse
 
 from dataset.dataloader import AerDataset
 from components.drawer import Drawer
-from components.accessor import Accessor
+from components.solver import DpSolver
 import matplotlib.pyplot as plt
 import numpy as np
 import  pandas as pd
@@ -30,13 +30,16 @@ def main(args):
     data.pre_alg()
 
 
-    accessor = Accessor(data)
-    accessor.build_graph()
-    accessor.run()
-    accessor.result_stat()
+    solver = DpSolver(data)
+    solver.build_graph()
+    solver.run()
+    solver.result_stat()
+
+
+
     drawer = Drawer()
-    data.fig = drawer.drawAer(data, config=config,position=accessor.position)
-    fig = drawer.drawGraph(accessor.G,position = accessor.position)
+    data.fig = drawer.drawAer(data, config=config,position=solver.position,soulution=solver.solution)
+    fig = drawer.drawGraph(solver.G,position = solver.position,soulution=solver.solution)
     plt.show()
 
     yml.save_log(data.out_dir_path)
