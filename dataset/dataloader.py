@@ -316,7 +316,7 @@ class AerDataset:
             while -1 in acc2tk[acc]:
                 acc2tk[acc].remove(-1)
 
-
+        self.inter_tks = inter_tks
         self.acc2tk = acc2tk
         self.tk2acc = tk2acc
         self.total_tks = total_tks
