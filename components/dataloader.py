@@ -14,8 +14,10 @@ class AerDataset:
         self.files=[]
         for file in config['files']:
             self.files.append(self.path/file)
-        self.assigned_units = config['assigned_units']
 
+
+
+        self.assigned_units = config['assigned_units']
         self.access_portion = config['access_portion']
         self.time_portion = config['time_portion']
         self.time_len = config['time_len']
@@ -27,15 +29,40 @@ class AerDataset:
         self.dump_file = self.out_dir_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
 
 
+        self.data_description={}
+
+
+        self.config=config
+
+    def description(self):
+        print("DATA DESCRIPTION")
+        for k,v in self.data_description.items():
+            print("-> {},:{}",k,v)
+
+    def passes_stat(self):
+        for key, value in self.passes_log.items():
+            print("{}: {}".format(key, len((value))))
+
+    def get_sublines(self, access_name, value_names, with_time=False):
+        for start, end in self.passes_log[access_name]:
+            if with_time:
+
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[
+                    ['time'] + value_names]
+            else:
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[
+                    value_names]
+
+            yield np.array(sub_df)
+
     def data_append_value(self,df):
         #append the data to df
         # freq = 12e9
         # opt_freq = 3e8
         # Pr = (opt_freq/freq)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
         # data = np.log10(Pr*1000)
-        data = 800-  df['Range (km)'].astype(float)
-        # data = 92.45+20*np.log10(df['Range (km)'].astype(float)*1e3)+20*np.log10(freq)
-        # data = 10000000/df['Range (km)'].astype(float)**2
+        data = df['Range (km)'].max() - df['Range (km)']
+
         value = pd.Series(name='Max - Range (km)',data=data)
         df =pd.concat([df,value],axis=1)
         return df
@@ -44,23 +71,31 @@ class AerDataset:
     def data_prep(self,data_prep_config):
         if not bool(data_prep_config['Do']):
             return
+        print("DATA PRE-PROCCESSING ...")
+        #input
+        time_len = self.time_len
+        time_portion = self.time_portion
 
 
 
-        input_columns = ['access','idx', 'time', 'value']
+        names = ['access','idx', 'time', 'value']
+
+        # names_type = {'access':str,'idx':np.int32, 'time':np.float32}#, 'value':np.float32}
         not_dup_columns=['value']
         output_columns =   ['access','idx','time']+self.assigned_units
 
-        # range = pd.read_csv(self.range,header=None,encoding='utf-16',delimiter="\t")
         dfs = []
-        print("--> regexing ...")
-        for idx,(item,unit) in enumerate(zip(self.files,self.assigned_units)):
+        print("-> regexing ...")
+        for idx,(item,unit) in enumerate(zip(self.files,self.assigned_units)):# 载入距离, 速度, 等不同value其他文件
 
 
-            df = pd.read_csv(item,header=None,encoding='utf-16',delimiter="\t")
-            # df2= df.replace(r'/Range (km)', r'xx', regex=True)
+            df = pd.read_csv(filepath_or_buffer=item,
+                             names=names,
+                             encoding='utf-16',
+                             delimiter=",",
+                             # converters=names_type
+                             )
 
-            df.columns = input_columns
             if unit=="Range (km)":
                 df['access'] = df['access'].str.replace(r'(.*)-(.*)', r'\1', regex=True)
                 df['access'] = df['access'].str.replace(r'Range',r'')
@@ -76,7 +111,7 @@ class AerDataset:
                 df['access'] = df['access'].str.replace(r'RangeRatekmsec',r'')
                 df['access'] = df['access'].str.replace(r'\s+', r'', regex=True)
 
-            df['access'] = df['access'].str.replace('ss3-To-','')
+            df['access'] = df['access'].str.replace('term-To-','')
             if idx>0:
                 df=df[not_dup_columns]
 
@@ -86,40 +121,41 @@ class AerDataset:
 
             dfs.append(df)
 
-        print('--> regex over')
+        print('-> regex over')
 
 
-        to_df = pd.concat(dfs,axis=1)
-        to_df=to_df[output_columns]
-        to_df.replace(' ', 'nan', inplace=True)
-        to_df[['time']] = to_df[['time']].astype(float)
-        to_df = to_df.query('time%1==0')
-        access_dict = dict(to_df['access'].value_counts())
+        df = pd.concat(dfs,axis=1)
+        df=df[output_columns]
+
+
+        df.replace(' ', 'nan', inplace=True)
+        df['time'] = df['time'].astype(float)
+        df = df.query('time%1==0')
+        df['time'] = df['time'].astype('int')
+        df['Range (km)'] = df['Range (km)'].astype('float64')
+
+        access_dict = dict(df['access'].value_counts())
         access_names = list(access_dict.keys())
         # access selectoin
         random.seed(data_prep_config['random_seed'])
         random.shuffle(access_names)
-        self.access_len = len(access_names)
-        start = math.floor(self.access_len*self.access_portion[0])
-        end = math.ceil(self.access_len*self.access_portion[1])
-        access_names = access_names[start:end]
-        # print("--> access total num:{}, selected num{}".format(self.access_len,len(access_names)))
 
 
-        #time selection
-        start = math.floor(self.time_len*self.time_portion[0])
-        end = math.ceil(self.time_len*self.time_portion[1])
+        start = math.floor(time_len*time_portion[0])
+        end = math.ceil(time_len*time_portion[1])
 
-        ret_df = to_df.query('{} in access and time >= {} and time <={}  '.format(access_names,start,end))
+        df = df.query('{} in access and time >= {} and time <={}  '.format(access_names,start,end))
 
-        print("--> time total len:{}, selected len:{}".format(self.time_len,end-start))
+        print("-> total time:{}s, selected time:{}s".format(time_len,end-start))
 
-        #log
-
-        ret_df = self.data_append_value(ret_df)
+        #data type set
 
 
-        ret_df.to_csv(self.dump_file, index=False)
+
+        df = self.data_append_value(df)
+
+
+        df.to_csv(self.dump_file, index=False)
 
 
 
@@ -128,21 +164,28 @@ class AerDataset:
         load df and compute passes log
         :return:
         '''
-        print("-> loading")
+        print("DATA RE-LOADING")
 
-        self.df = pd.read_csv(self.dump_file)
-        print(self.df.describe())
-        self.access_names = list(dict(self.df ['access'].value_counts()).keys())
-        self.access_names.sort()
-        print("--> access num:{}".format(len(self.access_names)))
+
+
+        df = pd.read_csv(self.dump_file)
+        df['time'] = np.array(df['time']).astype(np.int32)
+        df['access'] = np.array(df['access']).astype(str)
+
+
+        print(df.describe())
+        access_names = list(dict(df ['access'].value_counts()).keys())
+        access_names.sort()
+
+
         # 每个access 可能有多次过境, 将timestamp记录一下, 后面绘图, 或者数据处理都需要用
-        self.passes_log={}
-        for name in self.access_names:
-            time_ser = self.df.query("access == '{}'".format(name))['time']
+        passes_log={}
+        for name in access_names:
+            time_seriers = df.query("access == '{}'".format(name))['time']
             #相或得到time start or end mask
-            fwd = time_ser.diff(-1)
-            pwd = time_ser.diff(1)
-            time_np = np.array(time_ser)
+            fwd = time_seriers.diff(-1)
+            pwd = time_seriers.diff(1)
+            time_np = np.array(time_seriers)
             inter_mask = np.array(((abs(fwd)>1 ) + (abs(pwd)>1)))
             if time_np[0]%1 ==0:
                 inter_mask[0] =True
@@ -156,50 +199,39 @@ class AerDataset:
 
             time_stamp = np.array( time_np[inter_mask]) #连续的两个代表着开始和结束
             cnt = 0
-            self.passes_log[name]=[]
+            passes_log[name]=[]
             while cnt <len(time_stamp):# 如果有2*n个数, 就说明过境n次
-                self.passes_log[name].append(
+                passes_log[name].append(
                     (math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1]))# 可能有多次过境, 所以是append
                 )
                 cnt=cnt+2
 
-        # self.passes_stat()
+        data_description={}
+        data_description['access_num']=len(access_names)
+        #returns
+        self.df = df
+        self.passes_log = passes_log
+        self.access_names = access_names
+        self.data_description = data_description
 
 
-    def passes_stat(self):
-        for key,value in self.passes_log.items():
-            print("{}: {}".format(key,len((value))))
 
 
-    def __getitem__(self, access):
-
-        ret = self.df.query("access=='{}'".format(access))
-        return ret
-
-    def get_sublines(self,access_name,value_names,with_time=False):
-        for start, end in self.passes_log[access_name]:
-            if with_time:
-
-                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[['time']+value_names]
-            else:
-                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[value_names]
-
-            yield np.array(sub_df)
-                # time_mask_to_dfrec =(df_align['time'] >= start) *  (df_align['time'] <= end)
-                # try:
-                #     df_align[access_name][time_mask] =np.array(sub_df[value_names]) # without nparray, the mapping will fail due to the series default mapping
-                # except:
-                #     print("--> wrong in access: {}".format(access_name))
-
-        pass
-    def data_align(self,config):
+    def data_align(self):
         '''
         将prep的数据载入后, 需要通过此函数构建参差表, 具体见readme
-
+        hidden imput:
+            self.passes_log
+            self.access_names
+            self.df
+        hidden method
+            self.get_sublines
         :param config:
         :return:
         '''
         # for G opt
+        print("DATA ALIGNING")
+        algorithm_base = self.config['algorithm_base']
 
         time_access_names = self.access_names.copy()
         time_access_names.insert(0, 'time')
@@ -211,18 +243,19 @@ class AerDataset:
         df_align_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
 
         df_align['time'] = np.array(df_align_time).astype(np.int32)
-
+        df_align.set_index(['time'], inplace=True)
         # get time lines
         for access_name in self.access_names:
-            for line,(start,end) in zip(self.get_sublines(access_name,config['algorithm_base']),self.passes_log[access_name]):
-                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[['time']+config['algorithm_base']]
+            for line,(start,end) in zip(self.get_sublines(access_name,algorithm_base),self.passes_log[access_name]):
+                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[['time']+algorithm_base]
 
-                time_mask =(df_align['time'] >= start) *  (df_align['time'] <= end)
+                time_mask =(df_align.index >= start) *  (df_align.index <= end)
                 try:
-                    df_align[access_name][time_mask] =np.array(sub_df[config['algorithm_base'][0]]) # without nparray, the mapping will fail due to the series default mapping
+                    df_align[access_name][time_mask] =list(sub_df[algorithm_base[0]])
+                    # without nparray, the mapping will fail due to the series default mapping
                 except:
-                    print("--> wrong in access: {}".format(access_name))
-        print('over')
+                    print("-> wrong in access: {}".format(access_name))
+        print('-> data re-load over')
 
         #return
         self.df_align = df_align
@@ -239,26 +272,38 @@ class AerDataset:
             self.acc2tk
             self.tk2acc
         '''
+        #如何快速检测函数交点
+        #   1.对每行排序, 并输出arg序号值
+        #   2.对序号值差分
+        # 3. 如果有绝对值大或等于1的, 就说明这行出现函数交点
 
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
         tk_mask = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
         tk_mask_zip = tk_mask.sum(1) >0
 
-        tks = self.df_align['time'][tk_mask_zip]
+        tks = list(self.df_align[tk_mask_zip].index)
         passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
 
 
-        #矫正一下离境时刻, 原来的离境时刻timestamp都大1s
-        for k_item in tks.items():
-            if k_item[1] in  list(passes_log_np[:,1]+1):
-                tks[k_item[0]] -=1
+        #矫正一下离境时刻, 原来的离境时刻timestamp都大1s,入境时间是对的.
+        for i,tk in enumerate(tks):
+            if tk in  list(passes_log_np[:,1]+1):
+                tks[i] -=1
 
         #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
         max_tks = passes_log_np.max()
         min_tks = passes_log_np.min()
-        total_tks = pd.concat([pd.Series([min_tks],[0]),tks,pd.Series([max_tks],[max_tks-min_tks])])
+        # total_tks = pd.concat(
+        #     [
+        #         pd.Series([min_tks],[0]),
+        #         tks,
+        #         pd.Series([max_tks],[max_tks-min_tks])
+        #     ]
+        # )
+        tks.insert(0,min_tks)
+        tks.append(max_tks)
 
-        set_total_tks = set(total_tks)
+        set_total_tks = set(tks)
         set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]).astype(np.int64))
 
         # inter tks 即函数交点
@@ -302,7 +347,7 @@ class AerDataset:
         for col_name,col_value in tmp_df.iteritems():
             if col_name =='time':
                 continue
-            acc2tk[col_name]= list(tmp_df['time'][col_value>0])
+            acc2tk[col_name]= list(tmp_df.index[col_value>0])
         # then, the acc2tk[acc] is include all tks at the function coverage, thus we should filter out the point that did not on the function
         for acc,tks in acc2tk.items():
 
@@ -326,9 +371,15 @@ class AerDataset:
         for tk in total_tks:
             self.tk2acc[tk].sort()
 
+        position = {}
+        for acc in self.access_names:
+            (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
+            y = self.df_align.query(" time >={} and time<={}".format(tk_in, tk_out))[acc].max()
+            x = math.ceil(((tk_in + tk_out) / 2 - self.total_tks[0]) / 10)
+            position[acc] = (x, y)
+        self.position = position
 
 
-        pass
 
 
 
