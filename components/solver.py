@@ -334,7 +334,10 @@ class DpSolver:
             for s_prev,s_next in zip(path[1:-1],path[2:]):
                 while True:
                     if self.is_equal(s_prev,s_next,self.data.inter_tks[cnt]):
+
+                        # inter_tk_dict[self.data.inter_tks[cnt]] = (s_prev,s_next)
                         inter_tk_dict[s_prev,s_next] = self.data.inter_tks[cnt]
+
                         cnt+=1
                         break
                     else:
