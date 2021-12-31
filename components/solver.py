@@ -29,7 +29,7 @@ class DpSolver:
             for acc in self.data.tk2acc[tk]:
                 if acc == i_access:
                     continue
-                elif self.si_max_tk(acc) < tk and self.is_equal(i_access,acc,tk):
+                elif self.si_max_tk(acc) < tk and self.data.is_equal(i_access,acc,tk):
                     prevs.append(acc)
 
                 # if tk in self.tks_half(acc,'last'):
@@ -41,24 +41,16 @@ class DpSolver:
         #     return ['none']
         # else:
         return prevs
-        #
-        #
-        # first_half = set(first_half)
-        # for i_other in self.data.access_names:
-        #     if i_other == i_access:
-        #         continue
-        #     if len(set(self.tks_half(i_other,'first'))&first_half)!=0:
-        #         prevs.append(i_other)
-        # pass
+
     def func(self,si,tk):
         return math.ceil(self.data.df_align.query(" time =={}".format(tk))[si])
-    def is_equal(self,s1,s2,tk):
-        a,b = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s1])
-        c,d = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s2])
-        if (a>c and b<d) or (a<c and b>d):
-            return True
-        else:
-            return False
+    # def is_equal(self,s1,s2,tk):
+    #     a,b = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s1])
+    #     c,d = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s2])
+    #     if (a>c and b<d) or (a<c and b>d):
+    #         return True
+    #     else:
+    #         return False
     def s_next(self,i_access,tj=None):
         '''
         只选择前半段在本接入星后半段的
@@ -121,13 +113,18 @@ class DpSolver:
 
         return ret/len(St)
     def si_max_tk(self,si,tj=None):
-        return math.ceil(self.data.df_align.query("{} == {}".format(si,self.data.df_align[si].max()))['time'])
+        try:#max 可能有多个值
+            max_time = self.data.df_align.query("{} == {}".format(si, self.data.df_align[si].max())).index
+            ret = math.ceil(max_time[0])
+            return ret
+        except:
+            print(si)
     def build_graph(self):
 
         #build the graph whose access as the node
         self.G = nx.DiGraph(date='2021-12-22', name='handover')
         self.G.add_nodes_from(self.data.access_names)
-        for time in self.data.total_tks[1:]:# 根据tks 来建图
+        for time in self.data.all_tks[1:]:# 根据tks 来建图
             s_at_tk = self.data.tk2acc[time]
 
             if len(s_at_tk) ==1 : #初始点或者结束点
@@ -148,7 +145,7 @@ class DpSolver:
                 for i in range(len(s_at_tk)):
                     for j in range(1,len(s_at_tk)):
                         # if self.func(s_at_tk[i], time) == self.func(s_at_tk[j], time):
-                        if self.is_equal(s_at_tk[i], s_at_tk[j], time):
+                        if self.data.is_equal(s_at_tk[i], s_at_tk[j], time):
                             if self.si_max_tk(s_at_tk[i]) < time:
                                 # if s_at_tk[0] in self.s_prev(s_at_tk[1]) and s_at_tk[1] in self.s_next(s_at_tk[0]):
                                 self.G.add_weighted_edges_from([(s_at_tk[i], s_at_tk[j], time)])
@@ -164,13 +161,7 @@ class DpSolver:
                 pass
 
         #把函数的顶点和中点作为点位置
-        position = {}
-        for acc  in self.data.access_names:
-            (tk_in, tk_out) = self.data.passes_log[acc][0]#这里只能允许一个星过境一次, 不够一般性
-            y = self.data.df_align.query(" time >={} and time<={}".format(tk_in, tk_out))[acc].max()
-            x = math.ceil(((tk_in+tk_out)/2 - 8640)/10)
-            position[acc] = (x,y)
-        self.position = position
+
 
 
         #from none
@@ -234,27 +225,29 @@ class DpSolver:
 
     def run(self):
         print("\n\n--> at run ")
-        k={}
+        hop={}
         opt={}
-        k['none'] = 0
+        hop['none'] = 0
         opt['none']=0
         route={}
         for root in self.roots:#先对根节点(in-degree ==0)的都预处理
             tj,tj_next = self.data.acc2tk[root][0],self.data.acc2tk[root][-1]
-            opt[root] = (k['none']* opt['none'] + self.integ(root,tj,tj_next))/(k['none']+1)
-            k[root] = k['none'] + 1
+            opt[root] = (hop['none']* opt['none'] + self.integ(root,tj,tj_next))/(hop['none']+1)
+            hop[root] = hop['none'] + 1
             route[root] = 'none'
 
-        for acc in tqdm(self.trave()):
-            pre_sis = self.s_prev(acc)
-            tj_next = self.data.acc2tk[acc][-1]
+        for si in tqdm(self.trave()):
+            if si =='s3017':
+                pass
+            pre_sis = self.s_prev(si)
+            tj_next = self.data.acc2tk[si][-1]
 
-            if len(pre_sis)==0  : # 没有前置si,acc即为相位最靠前的卫星
+            if len(pre_sis)==0  : # 没有前置si,si即为相位最靠前的卫星
 
-                tj = self.data.acc2tk[acc][0]
-                opt[acc] =(k['none']* opt['none'] + self.integ(acc,tj,tj_next))/(k['none']+1)
-                k[acc] = k['none']+1
-                route[acc] = 'none'
+                tj = self.data.acc2tk[si][0]
+                opt[si] =(hop['none']* opt['none'] + self.integ(si,tj,tj_next))/(hop['none']+1)
+                hop[si] = hop['none']+1
+                route[si] = 'none'
 
             else:
                 tmp_opt = 0
@@ -262,23 +255,23 @@ class DpSolver:
                 for pre_si in pre_sis:
 
 
-                    tj = self.G.edges[pre_si,acc]['weight']
-                    acc_last_integ = self.integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
-                    integ = self.integ(acc,tj,tj_next)
-                    tmp = (k[pre_si]*opt[pre_si] - acc_last_integ + integ)/(k[pre_si]+1)
+                    tj = self.G.edges[pre_si,si]['weight']
+                    si_last_integ = self.integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
+                    integ = self.integ(si,tj,tj_next)
+                    tmp = (hop[pre_si]*opt[pre_si] - si_last_integ + integ)/(hop[pre_si]+1)
                     if tmp > tmp_opt:
                         tmp_opt = tmp
                         arg_opt = pre_si
 
-                opt[acc] =tmp_opt
-                k[acc] = k[arg_opt]+1
-                route[acc] = arg_opt
+                opt[si] =tmp_opt
+                hop[si] = hop[arg_opt]+1
+                route[si] = arg_opt
 
-            # last_acc = acc
+            # last_si = si
 
         #returns
         self.opt = opt
-        self.k = k
+        self.hop= hop
         self.route = route
 
             # print('opt: ',opt)
@@ -318,9 +311,9 @@ class DpSolver:
                 if leaf ==index_node and root in path:
                     # best paths cover all sub graphs
                     print("-> (sub) path:\n{}".format(path))
-                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf],self.k[leaf]))
+                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf],self.hop[leaf]))
                     solution.append(path)
-                    hop.append(self.k[leaf])
+                    hop.append(self.hop[leaf])
                     opt_values.append(self.opt[leaf])
 
 
@@ -333,7 +326,7 @@ class DpSolver:
         for path in solution:
             for s_prev,s_next in zip(path[1:-1],path[2:]):
                 while True:
-                    if self.is_equal(s_prev,s_next,self.data.inter_tks[cnt]):
+                    if self.data.is_equal(s_prev,s_next,self.data.inter_tks[cnt]):
 
                         # inter_tk_dict[self.data.inter_tks[cnt]] = (s_prev,s_next)
                         inter_tk_dict[s_prev,s_next] = self.data.inter_tks[cnt]
