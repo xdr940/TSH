@@ -3,6 +3,7 @@ from path import Path
 import random
 import math
 import numpy as np
+import itertools
 import datetime
 import os
 import networkx as nx
@@ -34,6 +35,16 @@ class AerDataset:
 
         self.config=config
 
+    def is_equal(self, s1, s2, tk):
+        try:
+            a, b = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s1])
+            c, d = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s2])
+        except:
+            print(s1,s2,tk)
+        if (a > c and b < d) or (a < c and b > d):
+            return True
+        else:
+            return False
     def description(self):
         print("DATA DESCRIPTION")
         for k,v in self.data_description.items():
@@ -57,9 +68,10 @@ class AerDataset:
 
     def data_append_value(self,df):
         #append the data to df
-        # freq = 12e9
-        # opt_freq = 3e8
-        # Pr = (opt_freq/freq)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
+        # freq = 12e9#12GHz
+        # opt_v = 3e8#300k
+        # wave_lambda = 0.025# m
+        # Pr = (wave_lambda)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
         # data = np.log10(Pr*1000)
         data = df['Range (km)'].max() - df['Range (km)']
 
@@ -73,9 +85,9 @@ class AerDataset:
             return
         print("DATA PRE-PROCCESSING ...")
         #input
-        time_len = self.time_len
         time_portion = self.time_portion
-
+        access_portion = self.access_portion
+        time_len = self.time_len
 
 
         names = ['access','idx', 'time', 'value']
@@ -139,6 +151,10 @@ class AerDataset:
         # access selectoin
         random.seed(data_prep_config['random_seed'])
         random.shuffle(access_names)
+
+        start = math.floor(len(access_names) * access_portion[0])
+        end = math.ceil(len(access_names) * access_portion[1])
+        access_names = access_names[start:end]
 
 
         start = math.floor(time_len*time_portion[0])
@@ -268,52 +284,66 @@ class AerDataset:
             self.df_align
 
         :return:
-            self.total_tks
+            self.all_tks
             self.acc2tk
             self.tk2acc
         '''
         #如何快速检测函数交点
-        #   1.对每行排序, 并输出arg序号值
-        #   2.对序号值差分
+        # 1. 对每行排序, 并输出arg序号值
+        # 2. 对序号值差分
         # 3. 如果有绝对值大或等于1的, 就说明这行出现函数交点
+        # 4. 为了
+        argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,np.inf)))
+        tk_mask1 = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
 
-        argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,-1)))
-        tk_mask = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
-        tk_mask_zip = tk_mask.sum(1) >0
+        argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan, -np.inf)))
+        tk_mask2 = np.abs(argsort - np.concatenate([argsort[0].reshape(1, argsort.shape[1]), argsort[:-1]], 0)) > 0
 
-        tks = list(self.df_align[tk_mask_zip].index)
+        tk_mask = tk_mask1 +tk_mask2
+        tk_mask_zip = tk_mask.sum(1)>0
+
+
+        # 1. passes tks
         passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
-
-
+        pass_tks =  list(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2]))
+        pass_tks =list(set(pass_tks))
+        pass_tks.sort()
         #矫正一下离境时刻, 原来的离境时刻timestamp都大1s,入境时间是对的.
-        for i,tk in enumerate(tks):
+
+
+        # 2. all tks
+        all_tks = list(self.df_align[tk_mask_zip].index)
+        for i,tk in enumerate(all_tks):
             if tk in  list(passes_log_np[:,1]+1):
-                tks[i] -=1
+                all_tks[i] -=1
 
         #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
         max_tks = passes_log_np.max()
         min_tks = passes_log_np.min()
-        # total_tks = pd.concat(
-        #     [
-        #         pd.Series([min_tks],[0]),
-        #         tks,
-        #         pd.Series([max_tks],[max_tks-min_tks])
-        #     ]
-        # )
-        tks.insert(0,min_tks)
-        tks.append(max_tks)
+        all_tks.insert(0,min_tks)
+        all_tks.append(max_tks)
 
-        set_total_tks = set(tks)
-        set_passes_logs = set(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2, ]).astype(np.int64))
 
-        # inter tks 即函数交点
-        inter_tks = list(set_total_tks.difference(set_passes_logs))
+
+        # 3. inter tks 即函数交点
+        set_all_tks = set(all_tks)
+        set_pass_tks = set(pass_tks)
+        inter_tks = list(set_all_tks.difference(set_pass_tks))# bug ,如果恰巧有interfaces tk 和出入境tk同步, 就问题了
+        for tk in pass_tks[1:-1]:
+            accesses = self.df_align.loc[tk][self.df_align.loc[tk] > 0].index
+            for acc1,acc2 in itertools.combinations(accesses,2):
+                if self.is_equal(acc1,acc2,tk):
+                    inter_tks.append(tk)
+                    print(tk)
+
         inter_tks.sort()#19
 
+
+
         # total tks 是包括了函数交点和 函数起点终点(过境时刻, 离境时刻)
-        total_tks = list(set_total_tks|set_passes_logs)
-        total_tks = [int(item) for item in total_tks]
-        total_tks.sort()#49
+        all_tks2 = list(set_all_tks|set_pass_tks)
+        all_tks2 = [int(item) for item in all_tks2]
+        all_tks2.sort()#49
 
         inter_tk_mask = np.array(inter_tks) - min_tks
 
@@ -343,7 +373,7 @@ class AerDataset:
         tk2acc = inter_tk2access.copy()
         tk2acc.update(ed_tk2access)
         acc2tk={}
-        tmp_df = self.df_align.query('time in {} '.format(total_tks))
+        tmp_df = self.df_align.query('time in {} '.format(all_tks))
         for col_name,col_value in tmp_df.iteritems():
             if col_name =='time':
                 continue
@@ -364,18 +394,18 @@ class AerDataset:
         self.inter_tks = inter_tks
         self.acc2tk = acc2tk
         self.tk2acc = tk2acc
-        self.total_tks = total_tks
-        self.total_tks.sort()
+        self.all_tks = all_tks
+        self.all_tks.sort()
         for access in self.access_names:
            self.acc2tk[access].sort()
-        for tk in total_tks:
+        for tk in all_tks:
             self.tk2acc[tk].sort()
 
         position = {}
         for acc in self.access_names:
             (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
             y = self.df_align.query(" time >={} and time<={}".format(tk_in, tk_out))[acc].max()
-            x = math.ceil(((tk_in + tk_out) / 2 - self.total_tks[0]) / 10)
+            x = math.ceil(((tk_in + tk_out) / 2 - self.all_tks[0]) / 10)
             position[acc] = (x, y)
         self.position = position
 
