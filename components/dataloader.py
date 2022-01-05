@@ -7,6 +7,8 @@ import itertools
 import datetime
 import os
 import networkx as nx
+from utils.tool import time_stat,get_now
+
 
 class AerDataset:
     def __init__(self,config):
@@ -276,12 +278,16 @@ class AerDataset:
         #return
         self.df_align = df_align
 
+
+    def tks_init(self):
+        pass
+
     def pre_alg(self):
         '''
-        算法数据准备, 得到邻接表
-
+        算法数据准备, get tks
         args:
             self.df_align
+            passes_log
 
         :return:
             self.all_tks
@@ -293,6 +299,8 @@ class AerDataset:
         # 2. 对序号值差分
         # 3. 如果有绝对值大或等于1的, 就说明这行出现函数交点
         # 4. 为了
+        tks_table = self.df_align.copy(deep=True)
+
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,np.inf)))
         tk_mask1 = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
 
@@ -302,27 +310,80 @@ class AerDataset:
         tk_mask = tk_mask1 +tk_mask2
         tk_mask_zip = tk_mask.sum(1)>0
 
+        #进去出去都是 1,补上
+        tk_mask_zip[0] = True
+        tk_mask_zip[-1]=True
+
 
         # 1. passes tks
         passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
         pass_tks =  list(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2]))
         pass_tks =list(set(pass_tks))
         pass_tks.sort()
-        #矫正一下离境时刻, 原来的离境时刻timestamp都大1s,入境时间是对的.
 
-
-        # 2. all tks
-        all_tks = list(self.df_align[tk_mask_zip].index)
-        for i,tk in enumerate(all_tks):
-            if tk in  list(passes_log_np[:,1]+1):
-                all_tks[i] -=1
-
-        #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
         max_tks = passes_log_np.max()
         min_tks = passes_log_np.min()
+
+        pass_out_tks =  list(passes_log_np[:,1])
+        pass_out_tks.sort()
+        # 2. all tks #矫正一下离境时刻, 原来的离境时刻timestamp都大了1s,入境时间是对的.
+        all_tks = list(self.df_align[tk_mask_zip].index)
+        for i,tk in enumerate(all_tks):
+            if tk-1 in  pass_out_tks:
+                all_tks[i] -=1
+                tk_mask_zip[tk-min_tks-1] = True
+                # tk_mask_zip[tk-min_tks] = False
+
+
+
+
+        all_tk2 = list(self.df_align[tk_mask_zip].index)
+        #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
+
         all_tks.insert(0,min_tks)
         all_tks.append(max_tks)
 
+        def init_tak():
+            pass
+
+        stamp = get_now()
+
+        tk_tag = {}
+        for tk in all_tk2:
+            tk_tag[tk] = {}
+            row = self.df_align.loc[tk]
+            ss = list(row[True ^ pd.isnull(row)].index)
+            tk_tag[tk]['pass_in'] = []
+            tk_tag[tk]['pass_out'] = []
+            tk_tag[tk]['inter']=[]
+
+            if tk ==min_tks:
+                #是否为首时刻
+
+
+                tk_tag[tk]['pass_in'].extend(ss)
+                pass
+            elif tk ==max_tks:
+
+                tk_tag[tk]['pass_out'].extend(ss)
+                pass
+            else:
+                for si in ss:
+                    if pd.isnull(self.df_align[si][tk-1]):
+                        tk_tag[tk]['pass_in'].append(si)
+                    if pd.isnull(self.df_align[si][tk+1]):
+                        tk_tag[tk]['pass_out'].append(si)
+
+                for si,sj in itertools.combinations(ss,2):
+                    if self.is_equal(si,sj,tk):
+                        tk_tag[tk]['inter'].append((si,sj))
+
+            if len(tk_tag[tk]['pass_in'])==0 and len(tk_tag[tk]['pass_out'])==0 and len(tk_tag[tk]['inter'])==0:
+                del(tk_tag[tk])
+
+        self.tk_tag = tk_tag
+        pass
+        time_stat(stamp)
 
 
         # 3. inter tks 即函数交点
@@ -340,15 +401,13 @@ class AerDataset:
 
 
 
-        # total tks 是包括了函数交点和 函数起点终点(过境时刻, 离境时刻)
-        all_tks2 = list(set_all_tks|set_pass_tks)
-        all_tks2 = [int(item) for item in all_tks2]
-        all_tks2.sort()#49
+
 
         inter_tk_mask = np.array(inter_tks) - min_tks
-
+        #降低查询的复杂度, 首先就将表格变小
         query_table = pd.DataFrame(argsort * tk_mask).loc[inter_tk_mask]
 
+# 构建tk2acc的查询机制
 
         # get inter_tk2access, query what the access at this timestamp(tk), and the timestamp in inter_timestamp (access function intersect)
         inter_tk2access={}
@@ -372,6 +431,9 @@ class AerDataset:
 
         tk2acc = inter_tk2access.copy()
         tk2acc.update(ed_tk2access)
+
+# 构建acc2tk 的查询机制
+
         acc2tk={}
         tmp_df = self.df_align.query('time in {} '.format(all_tks))
         for col_name,col_value in tmp_df.iteritems():
@@ -401,6 +463,9 @@ class AerDataset:
         for tk in all_tks:
             self.tk2acc[tk].sort()
 
+
+
+        #每个access 的极值点的坐标作为position, 为了tag区分
         position = {}
         for acc in self.access_names:
             (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
