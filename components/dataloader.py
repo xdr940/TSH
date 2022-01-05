@@ -279,10 +279,8 @@ class AerDataset:
         self.df_align = df_align
 
 
-    def tks_init(self):
-        pass
 
-    def pre_alg(self):
+    def tks_init(self):
         '''
         算法数据准备, get tks
         args:
@@ -299,8 +297,7 @@ class AerDataset:
         # 2. 对序号值差分
         # 3. 如果有绝对值大或等于1的, 就说明这行出现函数交点
         # 4. 为了
-        tks_table = self.df_align.copy(deep=True)
-
+        start = get_now()
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,np.inf)))
         tk_mask1 = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
 
@@ -337,19 +334,14 @@ class AerDataset:
 
 
 
-        all_tk2 = list(self.df_align[tk_mask_zip].index)
+        all_tks_supremum = list(self.df_align[tk_mask_zip].index)
         #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
 
-        all_tks.insert(0,min_tks)
-        all_tks.append(max_tks)
 
-        def init_tak():
-            pass
 
-        stamp = get_now()
 
         tk_tag = {}
-        for tk in all_tk2:
+        for tk in all_tks_supremum:
             tk_tag[tk] = {}
             row = self.df_align.loc[tk]
             ss = list(row[True ^ pd.isnull(row)].index)
@@ -359,113 +351,68 @@ class AerDataset:
 
             if tk ==min_tks:
                 #是否为首时刻
-
-
                 tk_tag[tk]['pass_in'].extend(ss)
                 pass
-            elif tk ==max_tks:
-
+            elif tk ==max_tks:#末时刻
                 tk_tag[tk]['pass_out'].extend(ss)
                 pass
-            else:
+            else:#中间时刻
                 for si in ss:
-                    if pd.isnull(self.df_align[si][tk-1]):
+                    if pd.isnull(self.df_align[si][tk-1]):#前一个时刻,si为nan, si该时刻为pass in
                         tk_tag[tk]['pass_in'].append(si)
-                    if pd.isnull(self.df_align[si][tk+1]):
+                    if pd.isnull(self.df_align[si][tk+1]):# 后一个时刻, si为nan, si该时刻为pass out
                         tk_tag[tk]['pass_out'].append(si)
 
-                for si,sj in itertools.combinations(ss,2):
+                for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
                     if self.is_equal(si,sj,tk):
                         tk_tag[tk]['inter'].append((si,sj))
 
             if len(tk_tag[tk]['pass_in'])==0 and len(tk_tag[tk]['pass_out'])==0 and len(tk_tag[tk]['inter'])==0:
                 del(tk_tag[tk])
 
-        self.tk_tag = tk_tag
-        pass
-        time_stat(stamp)
 
 
-        # 3. inter tks 即函数交点
-        set_all_tks = set(all_tks)
-        set_pass_tks = set(pass_tks)
-        inter_tks = list(set_all_tks.difference(set_pass_tks))# bug ,如果恰巧有interfaces tk 和出入境tk同步, 就问题了
-        for tk in pass_tks[1:-1]:
-            accesses = self.df_align.loc[tk][self.df_align.loc[tk] > 0].index
-            for acc1,acc2 in itertools.combinations(accesses,2):
-                if self.is_equal(acc1,acc2,tk):
-                    inter_tks.append(tk)
-                    print(tk)
+        #get
+        # inter tks
+        # pass in tks
+        # pass out tks
+        inter_tks = []
+        passIn_tks = []
+        passOut_tks = []
+        all_tks = list(tk_tag.keys())
 
-        inter_tks.sort()#19
+        for tk, v in tk_tag.items():
+            if len(v['inter']) != 0:
+                inter_tks.append(tk)
+            if len(v['pass_in'])!=0:
+                passIn_tks.append(tk)
+            if len(v['pass_out']) != 0:
+                passOut_tks.append(tk)
 
+        inter_tks.sort()
+        passIn_tks.sort()
+        passOut_tks.sort()
+        all_tks.sort()
 
-
-
-
-        inter_tk_mask = np.array(inter_tks) - min_tks
-        #降低查询的复杂度, 首先就将表格变小
-        query_table = pd.DataFrame(argsort * tk_mask).loc[inter_tk_mask]
-
-# 构建tk2acc的查询机制
-
-        # get inter_tk2access, query what the access at this timestamp(tk), and the timestamp in inter_timestamp (access function intersect)
-        inter_tk2access={}
-        for index,row in query_table.iterrows():
-            inter_tk2access[index+min_tks]=[]
-            acc_num = list(row[row > 0])
-            for num in acc_num:
-                inter_tk2access[index+min_tks].append(self.access_names[num])
-
-        #  same with after one, but the timestamp in star/end timestamps
-        ed_tk2access={}
-        for k,passes in self.passes_log.items():
-            for start,end in passes:
-                if start not in ed_tk2access.keys():
-                    ed_tk2access[start] =[]
-                ed_tk2access[start].append(k)
-
-                if end not in ed_tk2access.keys():
-                    ed_tk2access[end] = []
-                ed_tk2access[end].append(k)
-
-        tk2acc = inter_tk2access.copy()
-        tk2acc.update(ed_tk2access)
-
-# 构建acc2tk 的查询机制
-
-        acc2tk={}
-        tmp_df = self.df_align.query('time in {} '.format(all_tks))
-        for col_name,col_value in tmp_df.iteritems():
-            if col_name =='time':
-                continue
-            acc2tk[col_name]= list(tmp_df.index[col_value>0])
-        # then, the acc2tk[acc] is include all tks at the function coverage, thus we should filter out the point that did not on the function
-        for acc,tks in acc2tk.items():
-
-            cnt = 0
-            while cnt < len(acc2tk[acc]):
-
-                if acc not in tk2acc[acc2tk[acc][cnt]]:
-                    acc2tk[acc][cnt] = -1
-                cnt+=1
-                    # break
-            while -1 in acc2tk[acc]:
-                acc2tk[acc].remove(-1)
-
+    #returns
         self.inter_tks = inter_tks
-        self.acc2tk = acc2tk
-        self.tk2acc = tk2acc
+        self.passIn_tks = passIn_tks
+        self.passOut_tks = passOut_tks
         self.all_tks = all_tks
-        self.all_tks.sort()
-        for access in self.access_names:
-           self.acc2tk[access].sort()
-        for tk in all_tks:
-            self.tk2acc[tk].sort()
+        self.tk_tag = tk_tag
+    #
+        cost = time_stat(start)
+
+        print("-> tks init over, num of tks, and cost time:%.5f sec\n"%cost,
+              "--> inter tks:{}\n".format(len(inter_tks)),
+              "--> pass in tks:{}\n".format(len(passIn_tks)),
+              "--> pass out tks:{}\n".format(len(passOut_tks)),
+              "--> all tks:{}\n".format(len(all_tks)))
 
 
 
-        #每个access 的极值点的坐标作为position, 为了tag区分
+
+    def get_positions(self):# 迁移到drawer去
         position = {}
         for acc in self.access_names:
             (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
