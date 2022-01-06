@@ -342,37 +342,38 @@ class AerDataset:
 
 
 
-        tk_tag = {}
+        tiks = {}
         for tk in all_tks_supremum:
-            if tk == 8860:
-                pass
-            tk_tag[tk] = {}
             row = self.df_align.loc[tk]
             ss = list(row[True ^ pd.isnull(row)].index)
-            tk_tag[tk]['pass_in'] = []
-            tk_tag[tk]['pass_out'] = []
-            tk_tag[tk]['inter']=[]
+            tik =Tik(tk)
+            # tiks[tk]['pass_in'] = []
+            # tiks[tk]['pass_out'] = []
+            # tiks[tk]['inter']=[]
 
             if tk ==min_tks:
                 #是否为首时刻
-                tk_tag[tk]['pass_in'].extend(ss)
+                tik.addPass(addPassIn=ss)
                 pass
             elif tk ==max_tks:#末时刻
-                tk_tag[tk]['pass_out'].extend(ss)
+                tik.addPass(addPassOut=ss)
                 pass
             else:#中间时刻
                 for si in ss:
                     if pd.isnull(self.df_align[si][tk-1]):#前一个时刻,si为nan, si该时刻为pass in
-                        tk_tag[tk]['pass_in'].append(si)
+                        tik.passIn.append(si)
                     if pd.isnull(self.df_align[si][tk+1]):# 后一个时刻, si为nan, si该时刻为pass out
-                        tk_tag[tk]['pass_out'].append(si)
+                        tik.passOut.append(si)
 
                 for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
                     if self.is_equal(si,sj,tk):
-                        tk_tag[tk]['inter'].append((si,sj))
+                        tik.passInter.append((si,sj))
 
-            if len(tk_tag[tk]['pass_in'])==0 and len(tk_tag[tk]['pass_out'])==0 and len(tk_tag[tk]['inter'])==0:
-                del(tk_tag[tk])
+            tik.rebuild()
+            if tik.class_id=='O':
+                pass
+            else:
+                tiks[tk]= tik
 
 
 
@@ -383,14 +384,14 @@ class AerDataset:
         inter_tks = []
         passIn_tks = []
         passOut_tks = []
-        all_tks = list(tk_tag.keys())
+        all_tks = list(tiks.keys())
 
-        for tk, v in tk_tag.items():
-            if len(v['inter']) != 0:
+        for tk, tik in tiks.items():
+            if len(tik.passInter) != 0:
                 inter_tks.append(tk)
-            if len(v['pass_in'])!=0:
+            if len(tik.passIn)!=0:
                 passIn_tks.append(tk)
-            if len(v['pass_out']) != 0:
+            if len(tik.passOut) != 0:
                 passOut_tks.append(tk)
 
         inter_tks.sort()
@@ -403,7 +404,7 @@ class AerDataset:
         self.passIn_tks = passIn_tks
         self.passOut_tks = passOut_tks
         self.all_tks = all_tks
-        self.tk_tag = tk_tag
+        self.tiks = tiks
     #
         cost = time_stat(start)
 
@@ -429,10 +430,10 @@ class AerDataset:
 
     def get_acc2tk(self):
         '''
-        根据tk_tag, 输出acc2tk dict
+        根据tiks, 输出acc2tk dict
         :return:
         '''
-        # self.tk_tags
+        # self.tikss
         # self.
         #O(mn-)
         acc2tk={}
@@ -440,16 +441,14 @@ class AerDataset:
             acc2tk[si]=[]
             if si =='s5013':
                 pass
-            for tk ,v in self.tk_tag.items():#O(n-)
-                for sj,sk in v['inter']:
-                    if si==sj or si == sk:
-                        acc2tk[si].append(tk)
-                        break
-
-                if si in v['pass_in']:
+            for tk ,tik in self.tiks.items():#O(n-)
+                if tik.is_inInter(si):
                     acc2tk[si].append(tk)
 
-                elif si in v['pass_out']:
+                if si in tik.passIn:
+                    acc2tk[si].append(tk)
+
+                elif si in tik.passOut:
                     acc2tk[si].append(tk)
 
             acc2tk[si] = list(set(acc2tk[si]))# 去重
@@ -465,20 +464,35 @@ class AerDataset:
 
 
     def getIntersection(self,tk):
-        return self.tk_tag[tk]['inter']
+        return self.tiks[tk]['inter']
 
 
 
 class Tik:
     none_list=[]
-    def __init__(self,stamp,passIn=[],passOut=[],passInter=[]):
+    def __init__(self,stamp):
         self.stamp = stamp
-        self.passIn=passIn
-        self.passOut=passOut
-        self.passInter=passInter
+        self.passIn=[]
+        self.passOut=[]
+        self.passInter=[]
 
         pass
-    def classify(self):
+
+    def rebuild(self):
+        self.__classify()
+        self.relevant=[]
+
+    def addPass(self,addPassIn=None,addPassOut=None,addPassInter=None):
+        if addPassIn:
+            self.passIn.extend( addPassIn)
+        if addPassOut:
+
+            self.passOut.extend(addPassOut)
+
+        if addPassInter:
+            self.passInter.extend(addPassInter)
+
+    def __classify(self):
 
         if len(self.passInter) + len(self.passIn) +len(self.passOut) ==1:
             if len(self.passInter):
@@ -492,3 +506,13 @@ class Tik:
     def __str__(self):
         ret = "tik stamp:{},tik class:{}".format(self.stamp,self.class_id)
         return ret
+
+    def is_inInter(self,si):
+        for sjs in self.passInter:# 能够应对两个以上的卫星 inter
+            if si in list(sjs):
+                return True
+        return False
+    def is_in(self,si):
+        if (si not in self.passIn )and (si not in self.passOut )and (not self.is_inInter(si)):
+            return False
+        return True
