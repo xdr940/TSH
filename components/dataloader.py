@@ -8,7 +8,7 @@ import datetime
 import os
 import networkx as nx
 from utils.tool import time_stat,get_now
-
+from components.AcTik import Tik
 # m: 卫星数量,
 # n:时刻数量,n-关键时刻数量(n- << n)
 
@@ -87,7 +87,7 @@ class AerDataset:
     def data_prep(self,data_prep_config):
         if not bool(data_prep_config['Do']):
             return
-        print("DATA PRE-PROCCESSING ...")
+        print("\nDATA PRE-PROCCESSING ...")
         #input
         time_portion = self.time_portion
         access_portion = self.access_portion
@@ -108,7 +108,7 @@ class AerDataset:
             df = pd.read_csv(filepath_or_buffer=item,
                              names=names,
                              encoding='utf-16',
-                             delimiter=",",
+                             delimiter=",|\t",
                              # converters=names_type
                              )
 
@@ -184,7 +184,7 @@ class AerDataset:
         load df and compute passes log
         :return:
         '''
-        print("DATA RE-LOADING")
+        print("\nDATA RE-LOADING")
 
 
 
@@ -228,6 +228,8 @@ class AerDataset:
 
         data_description={}
         data_description['access_num']=len(access_names)
+        print('-> data re-load over')
+
         #returns
         self.df = df
         self.passes_log = passes_log
@@ -250,7 +252,7 @@ class AerDataset:
         :return:
         '''
         # for G opt
-        print("DATA ALIGNING")
+        print("\nDATA ALIGNING")
         algorithm_base = self.config['algorithm_base']
 
         time_access_names = self.access_names.copy()
@@ -275,14 +277,20 @@ class AerDataset:
                     # without nparray, the mapping will fail due to the series default mapping
                 except:
                     print("-> wrong in access: {}".format(access_name))
-        print('-> data re-load over')
 
         #return
         self.df_align = df_align
 
+    def data_parse(self):
+        print('\nDATA PARSING')
+        self.__tiks_init()
+        self.__get_positions()
+        self.__get_acc2tk()
+        self.__accs_init()
+        print('-> parse over')
 
 
-    def tks_init(self):
+    def __tiks_init(self):
         '''
         算法数据准备, get tks
         args:
@@ -353,21 +361,23 @@ class AerDataset:
 
             if tk ==min_tks:
                 #是否为首时刻
-                tik.addPass(addPassIn=ss)
+                [tik.addPass(addPassIn=si) for si in ss]
+
                 pass
             elif tk ==max_tks:#末时刻
-                tik.addPass(addPassOut=ss)
+                [tik.addPass(addPassOut=si) for si in ss]
                 pass
             else:#中间时刻
                 for si in ss:
                     if pd.isnull(self.df_align[si][tk-1]):#前一个时刻,si为nan, si该时刻为pass in
-                        tik.passIn.append(si)
+                        tik.addPass(addPassIn=si)
+                        # tik.passIn.add(si)
                     if pd.isnull(self.df_align[si][tk+1]):# 后一个时刻, si为nan, si该时刻为pass out
-                        tik.passOut.append(si)
+                        tik.addPass(addPassOut=si)
 
                 for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
                     if self.is_equal(si,sj,tk):
-                        tik.passInter.append((si,sj))
+                        tik.addPass(addPassInter={si,sj})
 
             tik.rebuild()
             if tik.class_id=='O':
@@ -414,10 +424,19 @@ class AerDataset:
               "--> pass out tks:{}\n".format(len(passOut_tks)),
               "--> all tks:{}\n".format(len(all_tks)))
 
+    def __accs_init(self):
+        accs=[]
+        si_names = self.access_names.copy()
+        while len(si_names)>0:
+            min_si = si_names[0]
+            for si in si_names:
+                if self.acc2tk[si][0] < self.acc2tk[min_si][0]:
+                    min_si =si
+            accs.append(min_si)
+            si_names.remove(min_si)
+        self.accs = accs
 
-
-
-    def get_positions(self):# 迁移到drawer去
+    def __get_positions(self):# 迁移到drawer去
         position = {}
         for acc in self.access_names:
             (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
@@ -428,7 +447,7 @@ class AerDataset:
 
 
 
-    def get_acc2tk(self):
+    def __get_acc2tk(self):
         '''
         根据tiks, 输出acc2tk dict
         :return:
@@ -439,16 +458,16 @@ class AerDataset:
         acc2tk={}
         for si in self.access_names: #O(m)
             acc2tk[si]=[]
-            if si =='s5013':
+            if si =='s3217':
                 pass
             for tk ,tik in self.tiks.items():#O(n-)
                 if tik.is_inInter(si):
                     acc2tk[si].append(tk)
 
-                if si in tik.passIn:
+                if si in tik.getPass('In'):
                     acc2tk[si].append(tk)
 
-                elif si in tik.passOut:
+                elif si in tik.getPass('Out'):
                     acc2tk[si].append(tk)
 
             acc2tk[si] = list(set(acc2tk[si]))# 去重
@@ -466,53 +485,16 @@ class AerDataset:
     def getIntersection(self,tk):
         return self.tiks[tk]['inter']
 
+    def getInterTk(self,si,sj):
+        # print(si,sj)
+
+        for tk in self.inter_tks:
+            inters = self.tiks[tk].getPass('Inter')
+            for inter in inters:
+                if inter == set([si,sj]):
+                    return tk
+
+        return None
 
 
-class Tik:
-    none_list=[]
-    def __init__(self,stamp):
-        self.stamp = stamp
-        self.passIn=[]
-        self.passOut=[]
-        self.passInter=[]
 
-        pass
-
-    def rebuild(self):
-        self.__classify()
-        self.relevant=[]
-
-    def addPass(self,addPassIn=None,addPassOut=None,addPassInter=None):
-        if addPassIn:
-            self.passIn.extend( addPassIn)
-        if addPassOut:
-
-            self.passOut.extend(addPassOut)
-
-        if addPassInter:
-            self.passInter.extend(addPassInter)
-
-    def __classify(self):
-
-        if len(self.passInter) + len(self.passIn) +len(self.passOut) ==1:
-            if len(self.passInter):
-                self.class_id = 'II'
-            else:
-                self.class_id = 'I'
-        elif len(self.passInter) + len(self.passIn) +len(self.passOut) >1:
-            self.class_id = 'III'
-        else:
-            self.class_id='O'
-    def __str__(self):
-        ret = "tik stamp:{},tik class:{}".format(self.stamp,self.class_id)
-        return ret
-
-    def is_inInter(self,si):
-        for sjs in self.passInter:# 能够应对两个以上的卫星 inter
-            if si in list(sjs):
-                return True
-        return False
-    def is_in(self,si):
-        if (si not in self.passIn )and (si not in self.passOut )and (not self.is_inInter(si)):
-            return False
-        return True
