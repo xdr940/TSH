@@ -16,35 +16,44 @@ class AerDataset:
     def __init__(self,config):
         pass
         self.path = Path(config['path'])
-        self.files=[]
-        for file in config['files']:
-            self.files.append(self.path/file)
 
 
 
+        #data prep
+        self.doOrNot = bool(config['Do'])
         self.assigned_units = config['assigned_units']
         self.access_portion = config['access_portion']
         self.time_portion = config['time_portion']
-        self.time_len = config['time_len']
-        self.access_len = 0
+        self.files = []
+        for file in config['files']:
+            self.files.append(self.path / file)
 
-        #time_dir = datetime.datetime.now().strftime("%m-%d-%H:%M")
-        self.out_dir_path = Path(config['dump_path']) #/ time_dir
+        #data re-load
+        self.out_dir_path = Path(config['dump_path'])  # / time_dir
         self.out_dir_path.mkdir_p()
         self.dump_file = self.out_dir_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
+
+        #data align
+        self.algorithm_base = config['algorithm_base']
+        self.access_len = 0
+        self.random_seed = config['random_seed']
+
+        #time_dir = datetime.datetime.now().strftime("%m-%d-%H:%M")
+
 
 
         self.data_description={}
 
 
-        self.config=config
 
     def is_equal(self, s1, s2, tk):
         try:
             a, b = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s1])
             c, d = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s2])
         except:
-            print(s1,s2,tk)
+
+            print("equal func wrong at {},{},{}".format(s1,s2,tk))
+            return
         if (a > c and b < d) or (a < c and b > d):
             return True
         else:
@@ -55,18 +64,30 @@ class AerDataset:
             print("-> {},:{}",k,v)
 
     def passes_stat(self):
-        for key, value in self.passes_log.items():
+        for key, value in self.crossLog.items():
             print("{}: {}".format(key, len((value))))
 
-    def get_sublines(self, access_name, value_names, with_time=False):
-        for start, end in self.passes_log[access_name]:
+    def get_sublines(self, access_name, value, with_time=False):
+        '''
+        hidden param
+            self.crossLog
+            self.df
+        called by
+            self.load_align
+            out
+        :param access_name:
+        :param value_names:
+        :param with_time:
+        :return:
+        '''
+        for start, end in self.crossLog[access_name]:
             if with_time:
 
                 sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[
-                    ['time'] + value_names]
+                    ['time'] + value]
             else:
                 sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[
-                    value_names]
+                    value]
 
             yield np.array(sub_df)
 
@@ -84,25 +105,37 @@ class AerDataset:
         return df
 
 
-    def data_prep(self,data_prep_config):
-        if not bool(data_prep_config['Do']):
+    def data_prep(self,):
+        '''
+        :param :
+            self.time_portion
+            self.access_portion
+            self.assigned_units
+            self.files
+            self.random_seed
+        :return:
+            a data frame file
+        '''
+        if self.doOrNot is False:
             return
         print("\nDATA PRE-PROCCESSING ...")
         #input
         time_portion = self.time_portion
         access_portion = self.access_portion
-        time_len = self.time_len
+        random_seed = self.random_seed
+        files = self.files
+        assigned_units = self.assigned_units
 
 
         names = ['access','idx', 'time', 'value']
 
         # names_type = {'access':str,'idx':np.int32, 'time':np.float32}#, 'value':np.float32}
         not_dup_columns=['value']
-        output_columns =   ['access','idx','time']+self.assigned_units
+        output_columns =   ['access','idx','time']+assigned_units
 
         dfs = []
         print("-> regexing ...")
-        for idx,(item,unit) in enumerate(zip(self.files,self.assigned_units)):# 载入距离, 速度, 等不同value其他文件
+        for idx,(item,unit) in enumerate(zip(files,assigned_units)):# 载入距离, 速度, 等不同value其他文件
 
 
             df = pd.read_csv(filepath_or_buffer=item,
@@ -153,14 +186,14 @@ class AerDataset:
         access_dict = dict(df['access'].value_counts())
         access_names = list(access_dict.keys())
         # access selectoin
-        random.seed(data_prep_config['random_seed'])
+        random.seed(random_seed)
         random.shuffle(access_names)
 
         start = math.floor(len(access_names) * access_portion[0])
         end = math.ceil(len(access_names) * access_portion[1])
         access_names = access_names[start:end]
 
-
+        time_len = int(df['time'].max())
         start = math.floor(time_len*time_portion[0])
         end = math.ceil(time_len*time_portion[1])
 
@@ -179,12 +212,18 @@ class AerDataset:
 
 
 
-    def load(self):
+    def load_align(self):
         '''
-        load df and compute passes log
+        :input:
+            self.dump_file
         :return:
+            self.df = df #for data align
+            self.crossLog = crossLog
+            self.access_names = access_names
+            self.data_description = data_description
+
         '''
-        print("\nDATA RE-LOADING")
+        print("\nDATA RE-LOADING AND ALIGN")
 
 
 
@@ -199,7 +238,7 @@ class AerDataset:
 
 
         # 每个access 可能有多次过境, 将timestamp记录一下, 后面绘图, 或者数据处理都需要用
-        passes_log={}
+        crossLog={}
         for name in access_names:
             time_seriers = df.query("access == '{}'".format(name))['time']
             #相或得到time start or end mask
@@ -219,70 +258,60 @@ class AerDataset:
 
             time_stamp = np.array( time_np[inter_mask]) #连续的两个代表着开始和结束
             cnt = 0
-            passes_log[name]=[]
+            crossLog[name]=[]
             while cnt <len(time_stamp):# 如果有2*n个数, 就说明过境n次
-                passes_log[name].append(
+                crossLog[name].append(
                     (math.ceil(time_stamp[cnt]),math.floor(time_stamp[cnt+1]))# 可能有多次过境, 所以是append
                 )
                 cnt=cnt+2
 
-        data_description={}
-        data_description['access_num']=len(access_names)
-        print('-> data re-load over')
-
-        #returns
+        self.crossLog = crossLog
         self.df = df
-        self.passes_log = passes_log
-        self.access_names = access_names
-        self.data_description = data_description
 
+        print("-> data aligning ...")
 
-
-
-    def data_align(self):
-        '''
-        将prep的数据载入后, 需要通过此函数构建参差表, 具体见readme
-        hidden imput:
-            self.passes_log
-            self.access_names
-            self.df
-        hidden method
-            self.get_sublines
-        :param config:
-        :return:
-        '''
-        # for G opt
-        print("\nDATA ALIGNING")
-        algorithm_base = self.config['algorithm_base']
-
-        time_access_names = self.access_names.copy()
+        algorithm_base = self.algorithm_base
+        time_access_names = access_names.copy()
         time_access_names.insert(0, 'time')
         df_align = pd.DataFrame(columns=time_access_names)
 
+        time_min = math.ceil(df['time'].min())
+        time_max = math.ceil(df['time'].max())
 
-        time_min = math.ceil(self.df['time'].min())
-        time_max = math.floor(self.df['time'].max())
-        df_align_time = pd.Series(name='time',data=np.linspace(start=int(time_min), stop=int(time_max), num=int(time_max - time_min + 1)))
+        df_align_time = pd.Series(name='time', data=np.linspace(start=int(time_min), stop=int(time_max),
+                                                                num=int(time_max - time_min + 1)))
 
         df_align['time'] = np.array(df_align_time).astype(np.int32)
         df_align.set_index(['time'], inplace=True)
         # get time lines
-        for access_name in self.access_names:
-            for line,(start,end) in zip(self.get_sublines(access_name,algorithm_base),self.passes_log[access_name]):
-                sub_df = self.df.query("access == '{}' and time >={} and time <={}".format(access_name,start,end))[['time']+algorithm_base]
+        for access_name in access_names:
+            for line, (start, end) in zip(self.get_sublines(access_name, algorithm_base), crossLog[access_name]):
+                sub_df = df.query("access == '{}' and time >={} and time <={}".format(access_name, start, end))[
+                    ['time'] + algorithm_base]
 
-                time_mask =(df_align.index >= start) *  (df_align.index <= end)
+                time_mask = (df_align.index >= start) * (df_align.index <= end)
                 try:
-                    df_align[access_name][time_mask] =list(sub_df[algorithm_base[0]])
+                    df_align[access_name][time_mask] = list(sub_df[algorithm_base[0]])
                     # without nparray, the mapping will fail due to the series default mapping
                 except:
                     print("-> wrong in access: {}".format(access_name))
 
-        #return
+        # returns
+        data_description = {}
+        data_description['access_num'] = len(access_names)
+        data_description['time_min'] = time_min
+        data_description['time_max'] = time_max
+        self.data_description = data_description
+
+        self.access_names = access_names
         self.df_align = df_align
 
+
+
+
+
     def data_parse(self):
-        print('\nDATA PARSING')
+        print('\nDATA PARSING...')
         self.__tiks_init()
         self.__get_positions()
         self.__get_acc2tk()
@@ -295,7 +324,7 @@ class AerDataset:
         算法数据准备, get tks
         args:
             self.df_align
-            passes_log
+            crossLog
 
         :return:
             self.all_tks
@@ -323,15 +352,15 @@ class AerDataset:
 
 
         # 1. passes tks
-        passes_log_np = np.array(list(self.passes_log.values())).reshape([len(self.passes_log), 2])
-        pass_tks =  list(np.array(list(self.passes_log.values())).reshape([len(self.passes_log)*2]))
+        crossLog_np = np.array(list(self.crossLog.values())).reshape([len(self.crossLog), 2])
+        pass_tks =  list(np.array(list(self.crossLog.values())).reshape([len(self.crossLog)*2]))
         pass_tks =list(set(pass_tks))
         pass_tks.sort()
 
-        max_tks = passes_log_np.max()
-        min_tks = passes_log_np.min()
+        max_tks = crossLog_np.max()
+        min_tks = crossLog_np.min()
 
-        pass_out_tks =  list(passes_log_np[:,1])
+        pass_out_tks =  list(crossLog_np[:,1])
         pass_out_tks.sort()
         # 2. all tks #矫正一下离境时刻, 原来的离境时刻timestamp都大了1s,入境时间是对的.
         all_tks = list(self.df_align[tk_mask_zip].index)
@@ -418,11 +447,11 @@ class AerDataset:
     #
         cost = time_stat(start)
 
-        print("-> tks init over, num of tks, and cost time:%.5f sec\n"%cost,
-              "--> inter tks:{}\n".format(len(inter_tks)),
-              "--> pass in tks:{}\n".format(len(passIn_tks)),
-              "--> pass out tks:{}\n".format(len(passOut_tks)),
-              "--> all tks:{}\n".format(len(all_tks)))
+        print("\n-> tks init over, num of tks:"
+              "\n--> inter tks:{}".format(len(inter_tks)),
+              "\n--> pass in tks:{}".format(len(passIn_tks)),
+              "\n--> pass out tks:{}".format(len(passOut_tks)),
+              "\n--> all tks:{}".format(len(all_tks)))
 
     def __accs_init(self):
         accs=[]
@@ -430,8 +459,11 @@ class AerDataset:
         while len(si_names)>0:
             min_si = si_names[0]
             for si in si_names:
-                if self.acc2tk[si][0] < self.acc2tk[min_si][0]:
-                    min_si =si
+                try:
+                    if self.acc2tk[si][0] < self.acc2tk[min_si][0]:
+                        min_si =si
+                except:
+                    print(si)
             accs.append(min_si)
             si_names.remove(min_si)
         self.accs = accs
@@ -439,7 +471,7 @@ class AerDataset:
     def __get_positions(self):# 迁移到drawer去
         position = {}
         for acc in self.access_names:
-            (tk_in, tk_out) = self.passes_log[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
+            (tk_in, tk_out) = self.crossLog[acc][0]  # 这里只能允许一个星过境一次, 不够一般性
             y = self.df_align.query(" time >={} and time<={}".format(tk_in, tk_out))[acc].max()
             x = math.ceil(((tk_in + tk_out) / 2 - self.all_tks[0]) / 10)
             position[acc] = (x, y)
