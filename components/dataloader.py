@@ -9,6 +9,8 @@ import os
 import networkx as nx
 from utils.tool import time_stat,get_now
 
+# m: 卫星数量,
+# n:时刻数量,n-关键时刻数量(n- << n)
 
 class AerDataset:
     def __init__(self,config):
@@ -342,6 +344,8 @@ class AerDataset:
 
         tk_tag = {}
         for tk in all_tks_supremum:
+            if tk == 8860:
+                pass
             tk_tag[tk] = {}
             row = self.df_align.loc[tk]
             ss = list(row[True ^ pd.isnull(row)].index)
@@ -423,9 +427,68 @@ class AerDataset:
 
 
 
+    def get_acc2tk(self):
+        '''
+        根据tk_tag, 输出acc2tk dict
+        :return:
+        '''
+        # self.tk_tags
+        # self.
+        #O(mn-)
+        acc2tk={}
+        for si in self.access_names: #O(m)
+            acc2tk[si]=[]
+            if si =='s5013':
+                pass
+            for tk ,v in self.tk_tag.items():#O(n-)
+                for sj,sk in v['inter']:
+                    if si==sj or si == sk:
+                        acc2tk[si].append(tk)
+                        break
+
+                if si in v['pass_in']:
+                    acc2tk[si].append(tk)
+
+                elif si in v['pass_out']:
+                    acc2tk[si].append(tk)
+
+            acc2tk[si] = list(set(acc2tk[si]))# 去重
+            acc2tk[si].sort()
+
+
+
+
+        self.acc2tk = acc2tk
 
 
 
 
 
+    def getIntersection(self,tk):
+        return self.tk_tag[tk]['inter']
 
+
+
+class Tik:
+    none_list=[]
+    def __init__(self,stamp,passIn=[],passOut=[],passInter=[]):
+        self.stamp = stamp
+        self.passIn=passIn
+        self.passOut=passOut
+        self.passInter=passInter
+
+        pass
+    def classify(self):
+
+        if len(self.passInter) + len(self.passIn) +len(self.passOut) ==1:
+            if len(self.passInter):
+                self.class_id = 'II'
+            else:
+                self.class_id = 'I'
+        elif len(self.passInter) + len(self.passIn) +len(self.passOut) >1:
+            self.class_id = 'III'
+        else:
+            self.class_id='O'
+    def __str__(self):
+        ret = "tik stamp:{},tik class:{}".format(self.stamp,self.class_id)
+        return ret
