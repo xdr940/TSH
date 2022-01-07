@@ -20,9 +20,12 @@ class Drawer:
 
 
         fig = plt.figure(1)
+        x_min = int(data.df['time'].min())
+        x_max = int(data.df['time'].max())
+        plt.xlim([x_min-100,x_max+100])
 
         for sub_idx, col in enumerate(config['data_show_lines'][1:]): #different value lines
-            plt.subplot(len(config['data_show_lines'])-1, 1, sub_idx + 1)  # without time
+            plt.plot(len(config['data_show_lines'])-1, 1, sub_idx + 1)  # without time
 
             for idx, access_name in enumerate(data.access_names):# different access lines in a value
                 for line in data.get_sublines(access_name,[col],with_time=True):# different subline in a line
@@ -31,36 +34,41 @@ class Drawer:
                     plt.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
 
                     if position:
-                        plt.text(position[access_name][0]*10+8640,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
+                        plt.text(position[access_name][0]*10+x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
 
         return fig
 
-    def drawAerSolution(self,config,data,final_solution,position,inter_tks,data_processed):
+    def drawAerSolution(self,config,data,final_solution,position,inter_tk_dict,data_processed):
 
         fig = plt.figure(2)
 
         solution_length = len(final_solution)
+
+        # ret tks 就是每个access 实际画出的部分
+        # 例如 s2420:(8640,inter_tk(s2420,s2520))
         ret_tks = {}
         for cnt in range(1, solution_length -1):
             s_pre, s, s_next = final_solution[cnt - 1], final_solution[cnt], final_solution[cnt + 1]
             if s_pre == 'none':
-                ret_tks[s] = (data_processed.acc2tk[s][0], inter_tks[(s, s_next)])
+                ret_tks[s] = (data_processed.acc2tk[s][0], inter_tk_dict[(s, s_next)])
                 continue
             if s_next == 'none':
-                ret_tks[s] = (inter_tks[(s_pre, s)], data_processed.acc2tk[s][-1])
+                ret_tks[s] = (inter_tk_dict[(s_pre, s)], data_processed.acc2tk[s][-1])
 
                 continue
             if s == 'none':
                 continue
 
-            ret_tks[s] = (inter_tks[(s_pre, s)], inter_tks[(s, s_next)])
+            ret_tks[s] = (inter_tk_dict[(s_pre, s)], inter_tk_dict[(s, s_next)])
         # 最后一个星,补上
-        ret_tks[final_solution[-1]] = (inter_tks[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
+        ret_tks[final_solution[-1]] = (inter_tk_dict[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
 
-
-
+        x_min = int(data.df['time'].min())
+        x_max = int(data.df['time'].max())
+        plt.xlim([x_min - 100, x_max + 100])
+        #
         for sub_idx, col in enumerate(config['data_show_lines'][1:]):  # different value lines
-            plt.subplot(len(config['data_show_lines']) - 1, 1, sub_idx + 1)  # without time
+            plt.plot(len(config['data_show_lines']) - 1, 1, sub_idx + 1)  # without time
 
             for idx, access_name in enumerate(data.access_names):  # different access lines in a value
                 for line in data.get_sublines(access_name, [col], with_time=True):  # different subline in a line

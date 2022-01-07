@@ -9,6 +9,7 @@ import os
 import networkx as nx
 from utils.tool import time_stat,get_now
 from components.AcTik import Tik
+import errno
 # m: 卫星数量,
 # n:时刻数量,n-关键时刻数量(n- << n)
 
@@ -50,7 +51,7 @@ class AerDataset:
         try:
             a, b = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s1])
             c, d = tuple(self.df_align.query(" time >={} and time <={}".format(tk - 1, tk))[s2])
-        except:
+        except IOError:
 
             print("equal func wrong at {},{},{}".format(s1,s2,tk))
             return
@@ -180,8 +181,8 @@ class AerDataset:
         df.replace(' ', 'nan', inplace=True)
         df['time'] = df['time'].astype(float)
         df = df.query('time%1==0')
-        df['time'] = df['time'].astype('int')
-        df['Range (km)'] = df['Range (km)'].astype('float64')
+        df['time'].loc[:] = df['time'].loc[:].astype('int')
+        df['Range (km)'].loc[:] = df['Range (km)'].loc[:].astype('float64')
 
         access_dict = dict(df['access'].value_counts())
         access_names = list(access_dict.keys())
@@ -228,11 +229,11 @@ class AerDataset:
 
 
         df = pd.read_csv(self.dump_file)
+        algorithm_base = self.algorithm_base
+
         df['time'] = np.array(df['time']).astype(np.int32)
         df['access'] = np.array(df['access']).astype(str)
-
-
-        print(df.describe())
+        print(df[algorithm_base].describe())
         access_names = list(dict(df ['access'].value_counts()).keys())
         access_names.sort()
 
@@ -268,9 +269,7 @@ class AerDataset:
         self.crossLog = crossLog
         self.df = df
 
-        print("-> data aligning ...")
-
-        algorithm_base = self.algorithm_base
+        #data align
         time_access_names = access_names.copy()
         time_access_names.insert(0, 'time')
         df_align = pd.DataFrame(columns=time_access_names)
@@ -292,9 +291,10 @@ class AerDataset:
                 time_mask = (df_align.index >= start) * (df_align.index <= end)
                 try:
                     df_align[access_name][time_mask] = list(sub_df[algorithm_base[0]])
-                    # without nparray, the mapping will fail due to the series default mapping
-                except:
-                    print("-> wrong in access: {}".format(access_name))
+                    # if go wrong here, check the original access file,
+                except :
+
+                    print("-> wrong in access: {}, check the original file".format(access_name))
 
         # returns
         data_description = {}
@@ -406,7 +406,23 @@ class AerDataset:
 
                 for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
                     if self.is_equal(si,sj,tk):
-                        tik.addPass(addPassInter={si,sj})
+                        if len(tik.getPass('Inter'))==0 : #是首个inter点
+                            tik.addPass(addPassInter={si,sj})
+                            continue#for
+                        if tik.is_inInter(si) is False and tik.is_inInter(sj) is False:# 没有元素存在list里
+                            tik.addPass(addPassInter={si,sj})
+                            continue#for
+
+                            #双方中有一方, 存在list的任意元素中(set), {si,sj}就并到set[i]中
+                        i = 0
+                        while not {si,sj}&tik.getPass('Inter')[i]:
+                            i+=1
+                        tik.getPass('Inter')[i]|={si,sj}
+
+
+
+
+
 
             tik.rebuild()
             if tik.class_id=='O':
@@ -519,14 +535,16 @@ class AerDataset:
 
     def getInterTk(self,si,sj):
         # print(si,sj)
+        if si =='none' and sj is not 'none':
+            return self.acc2tk[sj][0]
+        if  si is not 'none' and sj =='none':
+            return self.acc2tk[si][-1]
 
         for tk in self.inter_tks:
             inters = self.tiks[tk].getPass('Inter')
             for inter in inters:
-                if inter == set([si,sj]):
+                if {si,sj}&inter =={si,sj}:
                     return tk
-
-        return None
 
 
 
