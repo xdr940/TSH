@@ -2,33 +2,40 @@
 from utils.yaml_wrapper import YamlHandler
 import argparse
 
-from dataset.dataloader import AerDataset
+from components.dataloader import AerDataset
 from components.drawer import Drawer
+
 from components.solver import DpSolver
 import matplotlib.pyplot as plt
 import numpy as np
 import  pandas as pd
+import os
+
+from utils.tool import time_stat
 
 def main(args):
     yml = YamlHandler(args.settings)
     config = yml.read_yaml()
 
-
+    print("\n=====DATA=======")
     # load data
     data = AerDataset(config)
 
     #split data
-    data.data_prep(config)
+    has_solution = data.data_prep()
 
     # split data reload and process
-    data.load()
+    data.load_align()
 
 
 
 
-    data.data_align(config)
-    data.pre_alg()
+    # data.data_align()
+    data.data_parse()
+    print("\n=====PROBLEM=======")
 
+
+    drawer = Drawer()
 
     solver = DpSolver(data)
     solver.build_graph()
@@ -36,10 +43,14 @@ def main(args):
     solver.result_stat()
 
 
+    fig1 = drawer.drawAer(data, config=config,position=data.position)
+    fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
+    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
 
-    drawer = Drawer()
-    data.fig = drawer.drawAer(data, config=config,position=solver.position,soulution=solver.solution)
-    fig = drawer.drawGraph(solver.G,position = solver.position,soulution=solver.solution)
+    #
+    #
+    #
+
     plt.show()
 
     yml.save_log(data.out_dir_path)
@@ -47,6 +58,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")
-    parser.add_argument("--settings", default='../configs/config.yaml')
+    if os.path.exists('../configs/config.yaml'):
+        parser.add_argument("--settings", default='../configs/config.yaml')
+    else:
+        parser.add_argument("--settings", default='./configs/config.yaml')
+
     args = parser.parse_args()
     main(args)
