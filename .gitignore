@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 .idea
+*.txt
 */scratch.py
 __pycache__/
 
