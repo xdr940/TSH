@@ -41,9 +41,12 @@ class Tik:
 
         if len(self.passInter) + len(self.passIn) +len(self.passOut) ==1:
             if len(self.passInter):
-                self.class_id = 'II'
+                if len(self.passInter[0])<=2:
+                    self.class_id = 'II'
+                else:
+                    self.class_id = 'III'
             else:
-                self.class_id = 'I'
+                self.class_id = 'I' #就一个入点 或一个出点, 为I类
         elif len(self.passInter) + len(self.passIn) +len(self.passOut) >1:
             self.class_id = 'III'
         else:
