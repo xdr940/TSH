@@ -5,7 +5,7 @@ import pandas as pd
 import math
 from tqdm import tqdm
 from components.AcTik import Tik
-#using tk2acc,acc2tk,passes_log, inter_tks
+#using tk2acc,acc2tk,crossLog, inter_tks
 from utils.tool import dfs_depth,max_d
 class TimeStamp:
     def __init__(self):
@@ -24,7 +24,8 @@ class DpSolver:
         self.alg_base =alg_base
         self.position=None
 
-
+    def s_prev(self,si):
+        return self.__s_prev(si)
     def __s_prev(self,i_access,tj=None):
         '''
         等价于节点的父节点
@@ -32,8 +33,25 @@ class DpSolver:
         :param tj: 一般不需要, 如果时间跨度很长, 卫星可能转两圈的时候就需要
         :return:
         '''
+
+        def tks_half( i_access, half):
+            try:
+                mid_tk = self.__si_max_tk(i_access)
+            except:
+                print(i_access)
+                return
+            half_list = []
+            for item in self.data.acc2tk[i_access]:
+                if half == 'last':
+                    if item > mid_tk:
+                        half_list.append(item)
+                elif half == 'first':
+                    if item < mid_tk:
+                        half_list.append(item)
+            return half_list
+
         prevs = []
-        first_half = self.tks_half(i_access,'first')
+        first_half = tks_half(i_access,'first')
         for tk in first_half:
             tik = self.data.tiks[tk]
             if tik.class_id == 'I':
@@ -60,53 +78,33 @@ class DpSolver:
         # else:
         return prevs
 
-    def func(self,si,tk):
-        return math.ceil(self.data.df_align.query(" time =={}".format(tk))[si])
-    # def is_equal(self,s1,s2,tk):
-    #     a,b = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s1])
-    #     c,d = tuple(self.data.df_align.query(" time >={} and time <={}".format(tk-1,tk))[s2])
-    #     if (a>c and b<d) or (a<c and b>d):
-    #         return True
-    #     else:
-    #         return False
-    def s_next(self,i_access,tj=None):
+
+
+    def __trave(self):
         '''
-        只选择前半段在本接入星后半段的
-        :param i_access:
-        :param tj:  一般不需要, 如果时间跨度很长, 卫星可能转两圈的时候就需要
+        最小最大深度遍历法
         :return:
         '''
-        if i_access =='s4913':
-            pass
-        nexts=[]
-        last_half = self.tks_half(i_access,'last')
-        last_half = set(last_half)
-        for i_other in self.data.access_names:
-            if i_other == i_access:
-                continue
-            inter_tk = set(self.tks_half(i_other,'first'))&last_half
-            if len(inter_tk)!=0 and self.func(i_access,inter_tk) == self.func(i_other,inter_tk):
-                nexts.append(i_other)
-        return nexts
+        # print('->trave')
+        # for depth in dfs_depth(self.G):
+        #     print(depth)
+
+
+        # for head in self.roots:
+        #     trave_list.append( head)
+        #     # trave_list.extend(list(dict(nx.bfs_successors(self.G,head)).values()))
+        #     listoflist = dict(nx.bfs_successors(self.G,head)).values()
+        #     for ls in listoflist:
+        #         trave_list.extend(ls)
+
+        print("trave as :{}".format(self.data.accs))
+        return self.data.accs
 
 
 
-    def tks_half(self,i_access,half):
-        try:
-            mid =( self.data.acc2tk[i_access][0]+self.data.acc2tk[i_access][-1])/2
-        except:
-            print(i_access)
-        half_list=[]
-        for item in self.data.acc2tk[i_access]:
-            if half =='last':
-                if item >mid:
-                    half_list.append(item)
-            elif half =='first':
-                if item <mid:
-                    half_list.append(item)
-        return half_list
 
-    def integ(self,i_access,tj,tj_next):
+
+    def __integ(self,i_access,tj,tj_next):
         if i_access not in self.data.access_names:
             print(" sat num error")
 
@@ -119,20 +117,7 @@ class DpSolver:
             else:
                 return tmp.sum()
 
-    def opt_value(self,St):
-        ret = 0
-        for idx,(i_access,tj) in enumerate(St):
-            if i_access !='none':
-                if idx < len(St)-1:
-                    tj_next = St[idx+1][1]
-                else:
-                    tj_next = self.data.acc2tk[i_access][-1]
 
-                ret += self.integ(i_access, tj, tj_next)
-            else:
-                ret+=0
-
-        return ret/len(St)
     def __si_max_tk(self,si,tj=None):
         try:#max 可能有多个值
             max_time = self.data.df_align.query("{} == {}".format(si, self.data.df_align[si].max())).index
@@ -140,6 +125,8 @@ class DpSolver:
             return ret
         except:
             print(si)
+
+
     def build_graph(self):
         print("\nGRAPH BUILDING")
         #build the graph whose access as the node
@@ -153,10 +140,14 @@ class DpSolver:
                 continue
 
             elif tik.class_id =='II': #普通inter
-                s1,s2 = tik.passInter[0]
-                if self.__si_max_tk(s1) < tk:
+                try:
+                    s1,s2 = tik.passInter[0]
+                except:
+                    pass
+                    print('error')
+                if self.__si_max_tk(s1) < tk and s1 in self.__s_prev(s2):
                     self.G.add_weighted_edges_from([(s1, s2, tk)])
-                else:
+                elif self.__si_max_tk(s1) > tk and s2 in self.__s_prev(s1):
                     self.G.add_weighted_edges_from([(s2, s1, tk)])
 
             elif tik.class_id =='III': #III类tik
@@ -179,7 +170,7 @@ class DpSolver:
         roots = []
         leaves =[]
 
-        for si in self.data.access_names:
+        for si in self.__trave():
             if len(self.__s_prev(si))==0 and self.G.out_degree[si] !=0:
                 # 这里不等等价为子图个数, 如果相位相同两个初始access, 会出错
                 # 过滤掉1个点的子图
@@ -190,14 +181,14 @@ class DpSolver:
         # buble sort for each sub-graph
         for i in range(len(roots)):
             for j in range(i+1,len(roots)):
-                if self.data.passes_log[roots[i]][0][0] >self.data.passes_log[roots[j]][0][0]:
+                if self.data.crossLog[roots[i]][0][0] >self.data.crossLog[roots[j]][0][0]:
                     tmp = roots[i]
                     roots[i] = roots[j]
                     roots[j]= tmp
 
         for i in range(len(leaves)):
             for j in range(i + 1, len(leaves)):
-                if self.data.passes_log[leaves[i]][0][0] > self.data.passes_log[leaves[j]][0][0]:
+                if self.data.crossLog[leaves[i]][0][0] > self.data.crossLog[leaves[j]][0][0]:
                     tmp = leaves[i]
                     leaves[i] = leaves[j]
                     leaves[j] = tmp
@@ -212,28 +203,7 @@ class DpSolver:
         print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
 
-    def trave(self):
-        '''
-        最小最大深度遍历法
-        :return:
-        '''
-        # print('->trave')
-        # for depth in dfs_depth(self.G):
-        #     print(depth)
-
-
-        # for head in self.roots:
-        #     trave_list.append( head)
-        #     # trave_list.extend(list(dict(nx.bfs_successors(self.G,head)).values()))
-        #     listoflist = dict(nx.bfs_successors(self.G,head)).values()
-        #     for ls in listoflist:
-        #         trave_list.extend(ls)
-
-
-
-        return self.data.accs
-
-
+    
     def run(self):
         print("\nPROBLEM SOVING")
 
@@ -244,11 +214,11 @@ class DpSolver:
         route={}
         for root in self.roots:#先对根节点(in-degree ==0)的都预处理
             tj,tj_next = self.data.acc2tk[root][0],self.data.acc2tk[root][-1]
-            opt[root] = (hop['none']* opt['none'] + self.integ(root,tj,tj_next))/(hop['none']+1)
+            opt[root] = (hop['none']* opt['none'] + self.__integ(root,tj,tj_next))/(hop['none']+1)
             hop[root] = hop['none'] + 1
             route[root] = 'none'
 
-        for si in tqdm(self.trave()):
+        for si in tqdm(self.__trave()):
             if si =='s3017':
                 pass
             pre_sis = self.__s_prev(si)
@@ -257,7 +227,7 @@ class DpSolver:
             if len(pre_sis)==0  : # 没有前置si,si即为相位最靠前的卫星
 
                 tj = self.data.acc2tk[si][0]
-                opt[si] =(hop['none']* opt['none'] + self.integ(si,tj,tj_next))/(hop['none']+1)
+                opt[si] =(hop['none']* opt['none'] + self.__integ(si,tj,tj_next))/(hop['none']+1)
                 hop[si] = hop['none']+1
                 route[si] = 'none'
 
@@ -266,11 +236,12 @@ class DpSolver:
                 arg_opt=0
                 for pre_si in pre_sis:
 
-                    if pre_si =='s5114':
-                        pass
+                    if (pre_si ,si)not in self.G.edges: #这里遍历方法不同可能会出错
+                        print('error in( {},{})'.format(pre_si,si))
+                        continue
                     tj = self.G.edges[pre_si,si]['weight']
-                    si_last_integ = self.integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
-                    integ = self.integ(si,tj,tj_next)
+                    si_last_integ = self.__integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
+                    integ = self.__integ(si,tj,tj_next)
                     tmp = (hop[pre_si]*opt[pre_si] - si_last_integ + integ)/(hop[pre_si]+1)
                     if tmp > tmp_opt:
                         tmp_opt = tmp
@@ -317,11 +288,9 @@ class DpSolver:
 
         #选择候选路径中几个最大覆盖的多个路径为最后结果
         solutions = []
-        solution = None
 
         hop=[]
         opt_values = []
-        opt_value = 0
         for index_node,path in paths.items():
             for root,leaf in candidate_paths.items():
                 if root ==None or leaf==None:
@@ -333,34 +302,87 @@ class DpSolver:
                     solutions.append(path)
                     hop.append(self.hop[leaf])
                     opt_values.append(self.opt[leaf])
-                    if opt_value<self.opt[leaf]:
-                        opt_value = self.opt[leaf]
-                        solution = path
+
+
+        max_len = 0
+        final_solution = None
+        final_hop=0
+        final_opt_value = 0
+        for p in solutions:
+            start = self.data.acc2tk[p[1]][0]
+            end = self.data.acc2tk[p[-1]][-1]
+            this_len = end - start
+            if this_len > max_len: #持续时间大于目前最大
+                max_len = this_len
+                final_solution = p
+                final_hop = self.hop[p[-1]]
+                final_opt_value = self.opt[p[-1]]
+            elif self.__path_tk(p, 'tail') < self.__path_tk(final_solution, 'head'):  #持续时间段在目前前面, 可以合并
+                p.extend(final_solution)
+
+                final_opt_value = final_hop*final_opt_value + self.hop[p[-1]] *self.opt[p[-1]]
+
+                final_hop = final_hop + self.hop[p[-1]] +1
+
+                final_opt_value/=final_hop
+
+
+                final_solution = p
+
+            elif self.__path_tk(p, 'head') > self.__path_tk(final_solution, 'tail'):# 持续时间在目前后面,可以合并
+
+                final_opt_value = final_hop * final_opt_value + self.hop[p[-1]] * self.opt[p[-1]]
+
+                final_hop = final_hop + self.hop[p[-1]] + 1
+
+                final_opt_value /= final_hop
+
+                final_solution.extend(p)
 
 
 
         # 找到每个解
         # 的分量的交点,后面移动到 data prep 更合适
         inter_tk_dict={}
-        for path in solutions:
-            for s_prev,s_next in zip(path[1:-1],path[2:]):
-                inter_tk_dict[s_prev,s_next] = self.data.getInterTk(s_prev,s_next)
+        for s_prev,s_next in zip(final_solution[1:-1],final_solution[2:]):
+            inter_tk_dict[s_prev,s_next] = self.data.getInterTk(s_prev,s_next)
 
-        print('--> solution stat\n'+
-              'best solution:{}\n'.format(solution)+
-              'opt value :{}\n'.format(opt_value)+
-              'handover times:{}\n'.format(len(solution)-1)+
-              'capacity per handover:{}'.format(opt_value/(len(solution)-1))
+        total_time = self.__path_tk(final_solution, 'tail')-self.__path_tk(final_solution, 'head')
+        #断路时间
+        disconn_time=0
+        disconn_times=0
+        for i in range(1,len(final_solution)-1):
+            if final_solution[i]=='none'and final_solution[i-1]!='none'and final_solution[i+1]!='none':
+                disconn_time +=(self.data.getInterTk( 'none',final_solution[i+1]) - self.data.getInterTk(final_solution[i-1], 'none'))
+                disconn_times +=1
+
+
+        print('\n-> solution stat'+
+              '\n-->best solution:\t{}'.format(final_solution)+
+              '\n-->opt value:\t{:.2f}'.format(final_opt_value)+
+              '\n-->handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
+              '\n-->avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
+              '\n-->total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
+
               )
 
 
 
         #returns
-        self.solutions = solutions
-        self.hop = hop
-        self.opt_values = opt_values
-        self.inter_tk_dict = inter_tk_dict
 
+
+        self.inter_tk_dict = inter_tk_dict
+        self.final_soulution = final_solution
+
+
+
+
+
+    def __path_tk(self,path,headOrTail):
+        if headOrTail=='head':
+            return  self.data.acc2tk[path[1]][0]
+        if headOrTail =="tail":
+            return  self.data.acc2tk[path[-1]][-1]
 
 
 
