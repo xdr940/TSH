@@ -20,6 +20,7 @@ class Drawer:
 
 
         fig = plt.figure(1)
+
         for sub_idx, col in enumerate(config['data_show_lines'][1:]): #different value lines
             plt.subplot(len(config['data_show_lines'])-1, 1, sub_idx + 1)  # without time
 
