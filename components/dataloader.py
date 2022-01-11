@@ -92,16 +92,29 @@ class AerDataset:
 
             yield np.array(sub_df)
 
-    def data_append_value(self,df):
+    def data_append_value(self,df,value_name):
         #append the data to df
         # freq = 12e9#12GHz
         # opt_v = 3e8#300k
         # wave_lambda = 0.025# m
         # Pr = (wave_lambda)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
         # data = np.log10(Pr*1000)
-        data = df['Range (km)'].max() - df['Range (km)']
+        #
+        log_2_10 = 3.321928094887362
+        lg12 = 1.0791812
+        EIRP  = 24  # dBW
+        GT    = 22.9  # dBi/K
+        k     = -228.6#dBW/K
+        L     = 30    #dB
+        E     = 10    #dB
+        # d = df['Range (km)'].max() - df['Range (km)']
+        d = df['Range (km)']
+        Lf = 92.45 + 20*np.log10(d) + 20*lg12
 
-        value = pd.Series(name='Max - Range (km)',data=data)
+        CN = EIRP +GT - k-L-Lf-E
+        value = log_2_10*CN*.5
+        # value = CN
+        value = value.rename( value_name)
         df =pd.concat([df,value],axis=1)
         return df
 
@@ -206,7 +219,7 @@ class AerDataset:
 
 
 
-        df = self.data_append_value(df)
+        df = self.data_append_value(df,self.algorithm_base[0])
 
 
         df.to_csv(self.dump_file, index=False)
@@ -233,7 +246,7 @@ class AerDataset:
 
         df['time'] = np.array(df['time']).astype(np.int32)
         df['access'] = np.array(df['access']).astype(str)
-        print(df[algorithm_base].describe())
+        print(df[['Range (km)']+algorithm_base].describe())
         access_names = list(dict(df ['access'].value_counts()).keys())
         access_names.sort()
 
