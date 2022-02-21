@@ -1,2 +1,2 @@
-# snra
-satellite network random access
+# TSLa
+Terminal Satellite Link assignment
