@@ -20,9 +20,14 @@ class Drawer:
 
 
         fig = plt.figure(1)
-        x_min = int(data.df['time'].min())
-        x_max = int(data.df['time'].max())
-        plt.xlim([x_min-100,x_max+100])
+        self.x_min = int(data.df['time'].min())
+        self.x_max = int(data.df['time'].max())
+        self.y_min = data.df[config['data_show_lines'][-1]].min()
+        self.y_max = data.df[config['data_show_lines'][-1]].max()
+        self.margin = self.y_max - self.y_min
+
+        plt.xlim([self.x_min - 100, self.x_max + 100])
+        plt.ylim([self.y_min -self.margin/10 , self.y_max + self.margin/10 ])
 
         for sub_idx, col in enumerate(config['data_show_lines'][1:]): #different value lines
             plt.plot(len(config['data_show_lines'])-1, 1, sub_idx + 1)  # without time
@@ -34,7 +39,7 @@ class Drawer:
                     plt.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
 
                     if position:
-                        plt.text(position[access_name][0]*10+x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
+                        plt.text(position[access_name][0]*10+self.x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
 
         return fig
 
@@ -63,9 +68,15 @@ class Drawer:
         # 最后一个星,补上
         ret_tks[final_solution[-1]] = (inter_tk_dict[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
 
-        x_min = int(data.df['time'].min())
-        x_max = int(data.df['time'].max())
-        plt.xlim([x_min - 100, x_max + 100])
+        # x_min = int(data.df['time'].min())
+        # x_max = int(data.df['time'].max())
+        # y_min = int(data.df[config['data_show_lines'][-1]].min())
+        # y_max = int(data.df[config['data_show_lines'][-1]].max())
+        # M = y_max-y_min
+
+        plt.xlim([self.x_min - 100, self.x_max + 100])
+        plt.ylim([self.y_min-self.margin/10 , self.y_max+self.margin/10 ])
+
         #
         for sub_idx, col in enumerate(config['data_show_lines'][1:]):  # different value lines
             plt.plot(len(config['data_show_lines']) - 1, 1, sub_idx + 1)  # without time
