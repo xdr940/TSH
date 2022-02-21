@@ -219,8 +219,8 @@ class DpSolver:
             route[root] = 'none'
 
         for si in tqdm(self.__trave()):
-            if si =='s3017':
-                pass
+            # if si =='s3017':
+            #     pass
             pre_sis = self.__s_prev(si)
             tj_next = self.data.acc2tk[si][-1]
 
@@ -358,11 +358,12 @@ class DpSolver:
 
 
         print('\n-> solution stat'+
-              '\n-->best solution:\t{}'.format(final_solution)+
-              '\n-->opt value:\t{:.2f}'.format(final_opt_value)+
-              '\n-->handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
-              '\n-->avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
-              '\n-->total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
+              '\n--> best solution:\t{}'.format(final_solution)+
+              '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
+              '\n--> handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
+              '\n--> avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
+              '\n--> avg alg base:\t{:.2f}.'.format(final_opt_value *final_hop/ total_time) +
+              '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
 
               )
 
@@ -384,5 +385,12 @@ class DpSolver:
         if headOrTail =="tail":
             return  self.data.acc2tk[path[-1]][-1]
 
+class RssSolver:
+    def __init__(self):
+        pass
+
+class GreedySolver:
+    def __init__(self):
+        pass
 
 

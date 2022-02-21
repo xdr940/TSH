@@ -4,7 +4,7 @@ import argparse
 
 from components.dataloader import AerDataset
 from components.drawer import Drawer
-
+from components.stator import Stator
 from components.solver import DpSolver
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,7 +20,6 @@ def main(args):
     print("\n=====DATA=======")
     # load data
     data = AerDataset(config)
-
     #split data
     has_solution = data.data_prep()
 
@@ -32,20 +31,25 @@ def main(args):
 
     # data.data_align()
     data.data_parse()
+
+    stator = Stator(data)
+    stator.data_stat()
+
     print("\n=====PROBLEM=======")
 
 
+
     drawer = Drawer()
-
-    solver = DpSolver(data)
-    solver.build_graph()
-    solver.run()
-    solver.result_stat()
-
-
+    #
+    # solver = DpSolver(data)
+    # solver.build_graph()
+    # solver.run()
+    # solver.result_stat()
+    #
+    #
     fig1 = drawer.drawAer(data, config=config,position=data.position)
-    fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
-    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
+    # fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
+    # fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
 
     #
     #

@@ -36,6 +36,8 @@ class AerDataset:
 
         #data align
         self.algorithm_base = config['algorithm_base']
+        self.input_metrics = config['input_metrics']
+        self.output_metrics = config['output_metrics']
         self.access_len = 0
         self.random_seed = config['random_seed']
 
@@ -92,7 +94,7 @@ class AerDataset:
 
             yield np.array(sub_df)
 
-    def data_append_value(self,df,value_name):
+    def data_append_value(self,df,input_metrics,output_metrics):
         #append the data to df
         # freq = 12e9#12GHz
         # opt_v = 3e8#300k
@@ -100,22 +102,40 @@ class AerDataset:
         # Pr = (wave_lambda)**2/( 4*math.pi*df['Range (km)'].astype(float)*1e3)**2
         # data = np.log10(Pr*1000)
         #
+        f       = 12 #Ghz
         log_2_10 = 3.321928094887362
         lg12 = 1.0791812
-        EIRP  = 24  # dBW
-        GT    = 22.9  # dBi/K
-        k     = -228.6#dBW/K
-        L     = 30    #dB
-        E     = 10    #dB
+        EIRP  = 35     #dBW
+        GT    = 8.53   #dBi/K
+        Gt    = 40 #dB
+        Gr    = 40 #dB
+        k     = -228.6 #dBW/K
+        L     = 30     #dB
+        B     = 2      #GHz
         # d = df['Range (km)'].max() - df['Range (km)']
-        d = df['Range (km)']
-        Lf = 92.45 + 20*np.log10(d) + 20*lg12
+        d = df[input_metrics]
+        d = d['Range (km)']
+        Lf = 92.45 + 20 * np.log10(d) + 20 * np.log10(f)
 
-        CN = EIRP +GT - k-L-Lf-E
-        value = log_2_10*CN*.5
-        # value = CN
-        value = value.rename( value_name)
-        df =pd.concat([df,value],axis=1)
+        for item in output_metrics:
+            if item =='Cno(dBHz)':
+
+                Cno = EIRP +GT -k-Lf
+
+                Cno = Cno.rename( item)
+                df = pd.concat([df, Cno], axis=1)
+            if item =='CT(dBW/K)':
+                CT = EIRP + GT -Lf
+
+                CT = CT.rename(item)
+                df = pd.concat([df, CT], axis=1)
+            if item =='(Ct)Gbps':
+                pass
+            if item =='CT(W/K)' and 'CT(dBW/K)' in df.columns:
+                pass
+            if item =='Pr(dBW)':
+                Pr = EIRP + Gr - Lf
+
         return df
 
 
@@ -140,6 +160,8 @@ class AerDataset:
         files = self.files
         assigned_units = self.assigned_units
 
+        input_metrics = self.input_metrics
+        output_metrics = self.output_metrics
 
         names = ['access','idx', 'time', 'value']
 
@@ -219,7 +241,11 @@ class AerDataset:
 
 
 
-        df = self.data_append_value(df,self.algorithm_base[0])
+        df = self.data_append_value(
+            df,
+            input_metrics=input_metrics,
+            output_metrics=output_metrics
+        )
 
 
         df.to_csv(self.dump_file, index=False)
@@ -243,10 +269,10 @@ class AerDataset:
 
         df = pd.read_csv(self.dump_file)
         algorithm_base = self.algorithm_base
-
+        output_metrics = self.output_metrics
         df['time'] = np.array(df['time']).astype(np.int32)
         df['access'] = np.array(df['access']).astype(str)
-        print(df[['Range (km)']+algorithm_base].describe())
+        print(df[['Range (km)']+output_metrics].describe())
         access_names = list(dict(df ['access'].value_counts()).keys())
         access_names.sort()
 
