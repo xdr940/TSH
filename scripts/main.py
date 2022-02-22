@@ -26,14 +26,12 @@ def main(args):
     # split data reload and process
     data.load_align()
 
-
-
-
-    # data.data_align()
-    data.data_parse()
-
     stator = Stator(data)
     stator.data_stat()
+
+    data.data_parse()
+
+
 
     print("\n=====PROBLEM=======")
 
@@ -41,15 +39,15 @@ def main(args):
 
     drawer = Drawer()
     #
-    # solver = DpSolver(data)
-    # solver.build_graph()
-    # solver.run()
-    # solver.result_stat()
-    #
+    solver = DpSolver(data)
+    solver.build_graph()
+    solver.run()
+    solver.result_stat()
+    # #
     #
     fig1 = drawer.drawAer(data, config=config,position=data.position)
-    # fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
-    # fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
+    fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
+    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
 
     #
     #
