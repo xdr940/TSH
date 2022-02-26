@@ -4,6 +4,7 @@ import networkx as nx
 import pandas as pd
 import math
 from tqdm import tqdm
+import numpy as np
 from components.AcTik import Tik
 #using tk2acc,acc2tk,crossLog, inter_tks
 from utils.tool import dfs_depth,max_d
@@ -11,6 +12,9 @@ class TimeStamp:
     def __init__(self):
         pass
 
+class Solver:
+    def __init__(self):
+        pass
 
 class DpSolver:
     def __init__(self,data,alg_base="Max - Range (km)"):
@@ -205,7 +209,7 @@ class DpSolver:
 
     
     def run(self):
-        print("\nPROBLEM SOVING")
+        print("\nPROBLEM SOVING BY DP")
 
         hop={}
         opt={}
@@ -258,16 +262,12 @@ class DpSolver:
         self.hop= hop
         self.route = route
 
-            # print('opt: ',opt)
-            # print('k:',k)
 
-    def result_stat(self):
+        #post process
 
-        # 记录所有最大联通子图的可能路径
-        print("\nPROBLEM STAT")
-        paths = {} # all paths in all sub graphs
+        paths = {}  # all paths in all sub graphs
         for leaf in self.leaves:
-            paths[leaf]=[]
+            paths[leaf] = []
             paths[leaf].append(leaf)
 
             end_node = leaf
@@ -276,60 +276,58 @@ class DpSolver:
                 end_node = self.route[end_node]
             paths[leaf].reverse()
 
-        candidate_paths={}
+        candidate_paths = {}
         for root in self.roots:
             argmax_leaf = None
             sub_opt = 0
             for leaf in self.leaves:
-                if root in paths[leaf] and self.opt[leaf]>sub_opt :
+                if root in paths[leaf] and self.opt[leaf] > sub_opt:
                     sub_opt = self.opt[leaf]
                     argmax_leaf = leaf
             candidate_paths[root] = argmax_leaf
 
-        #选择候选路径中几个最大覆盖的多个路径为最后结果
+        # 选择候选路径中几个最大覆盖的多个路径为最后结果
         solutions = []
 
-        hop=[]
+        hop = []
         opt_values = []
-        for index_node,path in paths.items():
-            for root,leaf in candidate_paths.items():
-                if root ==None or leaf==None:
+        for index_node, path in paths.items():
+            for root, leaf in candidate_paths.items():
+                if root == None or leaf == None:
                     continue
-                if leaf ==index_node and root in path:
+                if leaf == index_node and root in path:
                     # best paths cover all sub graphs
                     print("-> (sub) path:\n{}".format(path))
-                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf],self.hop[leaf]))
+                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf], self.hop[leaf]))
                     solutions.append(path)
                     hop.append(self.hop[leaf])
                     opt_values.append(self.opt[leaf])
 
-
         max_len = 0
         final_solution = None
-        final_hop=0
+        final_hop = 0
         final_opt_value = 0
         for p in solutions:
             start = self.data.acc2tk[p[1]][0]
             end = self.data.acc2tk[p[-1]][-1]
             this_len = end - start
-            if this_len > max_len: #持续时间大于目前最大
+            if this_len > max_len:  # 持续时间大于目前最大
                 max_len = this_len
                 final_solution = p
                 final_hop = self.hop[p[-1]]
                 final_opt_value = self.opt[p[-1]]
-            elif self.__path_tk(p, 'tail') < self.__path_tk(final_solution, 'head'):  #持续时间段在目前前面, 可以合并
+            elif self.__path_tk(p, 'tail') < self.__path_tk(final_solution, 'head'):  # 持续时间段在目前前面, 可以合并
                 p.extend(final_solution)
 
-                final_opt_value = final_hop*final_opt_value + self.hop[p[-1]] *self.opt[p[-1]]
+                final_opt_value = final_hop * final_opt_value + self.hop[p[-1]] * self.opt[p[-1]]
 
-                final_hop = final_hop + self.hop[p[-1]] +1
+                final_hop = final_hop + self.hop[p[-1]] + 1
 
-                final_opt_value/=final_hop
-
+                final_opt_value /= final_hop
 
                 final_solution = p
 
-            elif self.__path_tk(p, 'head') > self.__path_tk(final_solution, 'tail'):# 持续时间在目前后面,可以合并
+            elif self.__path_tk(p, 'head') > self.__path_tk(final_solution, 'tail'):  # 持续时间在目前后面,可以合并
 
                 final_opt_value = final_hop * final_opt_value + self.hop[p[-1]] * self.opt[p[-1]]
 
@@ -339,14 +337,53 @@ class DpSolver:
 
                 final_solution.extend(p)
 
+        self.final_hop = final_hop
+        self.final_soulution = final_solution
+
+            # print('opt: ',opt)
+            # print('k:',k)
+    def rss_run(self):
+        print("\nPROBLEM SOVING BY RSS")
+        tmp_list = []
+        for idx,row in self.data.df_align.iterrows():
+            row = row.replace(np.nan, 0)
+            if row.sum()==0:
+                tmp_list.append('none')
+            else:
+                max_acc = np.argmax(row)
+                tmp_list.append(self.data.df_align.columns[max_acc])
+        rss_list = ['none']
+
+        #去掉成片的重复access name
+        i=0
+        rss_list.append(tmp_list[0])
+        while True:
+            if tmp_list[i] == rss_list[-1]:
+                pass
+            else:
+                rss_list.append(tmp_list[i])
+            i+=1
+            if i >= len(tmp_list):
+                break
+
+        print('rss list :{}'.format(rss_list))
+        self.final_soulution = rss_list
+        self.final_hop = len(self.final_soulution)
 
 
+    def result_stat(self):
+
+        # 记录所有最大联通子图的可能路径
+        print("\nPROBLEM STAT")
+
+
+        final_solution = self.final_soulution
+        final_hop = self.final_hop
         # 找到每个解
         # 的分量的交点,后面移动到 data prep 更合适
         inter_tk_dict={}
         for s_prev,s_next in zip(final_solution[1:-1],final_solution[2:]):
             inter_tk_dict[s_prev,s_next] = self.data.getInterTk(s_prev,s_next)
-
         total_time = self.__path_tk(final_solution, 'tail')-self.__path_tk(final_solution, 'head')
         #断路时间
         disconn_time=0
@@ -356,13 +393,13 @@ class DpSolver:
                 disconn_time +=(self.data.getInterTk( 'none',final_solution[i+1]) - self.data.getInterTk(final_solution[i-1], 'none'))
                 disconn_times +=1
 
-
+        self.inter_tk_dict = inter_tk_dict
         print('\n-> solution stat'+
               '\n--> best solution:\t{}'.format(final_solution)+
-              '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
+              # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
               '\n--> handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
               '\n--> avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
-              '\n--> avg alg base:\t{:.2f}.'.format(final_opt_value *final_hop/ total_time) +
+              # '\n--> avg alg base:\t{:.2f}.'.format(final_opt_value *final_hop/ total_time) +
               '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
 
               )
@@ -376,7 +413,8 @@ class DpSolver:
         self.final_soulution = final_solution
 
 
-
+    def _get_inter_tks(self,solution):
+        pass
 
 
     def __path_tk(self,path,headOrTail):
@@ -385,9 +423,7 @@ class DpSolver:
         if headOrTail =="tail":
             return  self.data.acc2tk[path[-1]][-1]
 
-class RssSolver:
-    def __init__(self):
-        pass
+
 
 class GreedySolver:
     def __init__(self):

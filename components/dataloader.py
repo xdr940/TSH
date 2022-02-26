@@ -47,7 +47,8 @@ class AerDataset:
 
         self.data_description={}
 
-
+    def get_time(self,t):
+        return self.df_align.index[t]
 
     def is_equal(self, s1, s2, tk):
         try:
@@ -247,7 +248,7 @@ class AerDataset:
             output_metrics=output_metrics
         )
 
-
+        print('-> data saved at:{}'.format(self.dump_file))
         df.to_csv(self.dump_file, index=False)
 
 
@@ -350,11 +351,16 @@ class AerDataset:
 
 
     def data_parse(self):
+
         print('\nDATA PARSING...')
+        start = get_now()
+
         self.__tiks_init()
         self.__get_positions()
         self.__get_acc2tk()
         self.__accs_init()
+        cost = time_stat(start)
+
         print('-> parse over')
 
 

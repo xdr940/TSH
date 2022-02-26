@@ -46,7 +46,19 @@ def main(args):
     # #
     #
     fig1 = drawer.drawAer(data, config=config,position=data.position)
-    fig2 = drawer.drawAerSolution(data=data, config=config,position=data.position,final_solution=solver.final_soulution,inter_tk_dict=solver.inter_tk_dict,data_processed=solver.data)
+    fig2 = drawer.drawAerSolution(data=data,
+                                  config=config,
+                                  position=data.position,
+                                  final_solution=solver.final_soulution,
+                                  inter_tk_dict=solver.inter_tk_dict,
+                                  data_processed=solver.data)
+    fig4 = drawer.drawAccessSolution(data=data,
+                                  config=config,
+                                  position=data.position,
+                                  final_solution=solver.final_soulution,
+                                  inter_tk_dict=solver.inter_tk_dict,
+                                  data_processed=solver.data
+                             )
     fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_soulution)
 
     #

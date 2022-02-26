@@ -19,7 +19,8 @@ class Drawer:
 
 
 
-        fig = plt.figure(1)
+        fig = plt.figure(1,figsize=(7,4))
+
         self.x_min = int(data.df['time'].min())
         self.x_max = int(data.df['time'].max())
         self.y_min = data.df[config['data_show_lines'][-1]].min()
@@ -45,7 +46,7 @@ class Drawer:
 
     def drawAerSolution(self,config,data,final_solution,position,inter_tk_dict,data_processed):
 
-        fig = plt.figure(2)
+        fig = plt.figure(2,figsize=(7,4))
 
         solution_length = len(final_solution)
 
@@ -104,7 +105,7 @@ class Drawer:
         return fig
 
     def drawAccessSolution(self,config,data,final_solution,position,inter_tk_dict,data_processed):
-        fig = plt.figure(4)
+        fig = plt.figure(4,figsize=(14,4))
         solution_length = len(final_solution)
 
         # ret tks 就是每个access 实际画出的部分
@@ -128,10 +129,11 @@ class Drawer:
         inter_tk_dict[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
 
 
-
+        all_start_tk = data_processed.all_tks[0]
+        all_end_tk = data_processed.all_tks[1]
         plt.xlim([self.x_min - 100, self.x_max + 100])
         # plt.ylim([self.y_min - self.margin / 10, self.y_max + self.margin / 10])
-        end_with ={0:8640}# height=0, end_tk=0
+        end_with ={0:all_start_tk}# height=0, end_tk=0
         height_dict={'none':0}#access name : height
         max_height=0
         for sub_idx, col in enumerate(config['data_show_lines'][1:]):  # different value lines
@@ -140,7 +142,7 @@ class Drawer:
             for access_name in data.access_names:
                 for line in data.get_sublines(access_name,[col],with_time=True):# 基本为1
                     start_tk = line.T[0][0]
-                    min_space = 10000
+                    min_space = all_end_tk
                     suited_height=0
                     for height,end_tk in end_with.items():
                         space_time = start_tk - end_tk
@@ -150,7 +152,7 @@ class Drawer:
                             suited_height =height
                             min_space = space_time
 
-                    if min_space!=10000:
+                    if min_space!=all_end_tk:
                         height_dict[access_name]=suited_height
                         end_with[suited_height]=line.T[0][-1]
                     else:
@@ -191,7 +193,8 @@ class Drawer:
     def drawGraph(self,G,position=None,final_solution=None):
         font_size =14
         edge_color=[]
-        fig = plt.figure(3)
+        fig = plt.figure(3,figsize=(7,4))
+
         if position ==None:
             position = nx.spring_layout(G)
         if final_solution==None:
