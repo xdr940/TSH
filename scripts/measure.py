@@ -40,49 +40,42 @@ def main(args):
     drawer = Drawer()
     #
     solver = DpSolver(data)
-    solver.build_graph(weights='1')
-
-
-    final_solution = solver.shortest_path()
-    # final_solution = solver.rss_run()
-    # solver.result_stat()
-    inter_tk_dict = solver.get_inter_tks(final_solution)
-
-    # final_value = solver.get_selected_alg_base()
-
+    solver.build_graph()
+    solver.run()
+    solver.result_stat()
     # #
     #
     fig1 = drawer.drawAer(data, config=config,position=data.position)
-    # plt.plot(final_value,'r')
     fig2 = drawer.drawAerSolution(data=data,
                                   config=config,
                                   position=data.position,
-                                  final_solution=final_solution,
-                                  inter_tk_dict=inter_tk_dict,
-                                  )
+                                  final_solution=solver.final_solution,
+                                  inter_tk_dict=solver.inter_tk_dict,
+                                  data_processed=solver.data)
     fig4 = drawer.drawAccessSolution(data=data,
                                   config=config,
                                   position=data.position,
-                                  final_solution=final_solution,
-                                  inter_tk_dict=inter_tk_dict,
+                                  final_solution=solver.final_solution,
+                                  inter_tk_dict=solver.inter_tk_dict,
+                                  data_processed=solver.data
                              )
-    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=final_solution)
-    # figs = drawer.drawGraph(solver.G,position = data.position)
+    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=solver.final_solution)
+
     #
     #
     #
 
     plt.show()
-    #
-    # yml.save_log(data.out_dir_path)
+
+    yml.save_log(data.out_dir_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")
-    if os.path.exists('../configs/config.yaml'):
-        parser.add_argument("--settings", default='../configs/config.yaml')
+    if os.path.exists('../configs/measure_config.yaml'):
+        parser.add_argument("--settings", default='../configs/measure_config.yaml')
     else:
-        parser.add_argument("--settings", default='./configs/config.yaml')
+        parser.add_argument("--settings", default='./configs/measure_config.yaml')
 
     args = parser.parse_args()
     main(args)

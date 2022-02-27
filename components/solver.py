@@ -5,6 +5,7 @@ import pandas as pd
 import math
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 from components.AcTik import Tik
 #using tk2acc,acc2tk,crossLog, inter_tks
 from utils.tool import dfs_depth,max_d
@@ -131,7 +132,8 @@ class DpSolver:
             print(si)
 
 
-    def build_graph(self):
+    def build_graph(self,weights='1'):
+        assert(weights in ['1','tk'])
         print("\nGRAPH BUILDING")
         #build the graph whose access as the node
 
@@ -150,9 +152,20 @@ class DpSolver:
                     pass
                     print('error')
                 if self.__si_max_tk(s1) < tk and s1 in self.__s_prev(s2):
-                    self.G.add_weighted_edges_from([(s1, s2, tk)])
+                    if weights=='tk':
+                        self.G.add_weighted_edges_from([(s1, s2, tk)])
+                    elif weights=='1':
+                        self.G.add_weighted_edges_from([(s1, s2, 1)])
+
                 elif self.__si_max_tk(s1) > tk and s2 in self.__s_prev(s1):
-                    self.G.add_weighted_edges_from([(s2, s1, tk)])
+                    if weights=='tk':
+                        self.G.add_weighted_edges_from([(s2, s1, tk)])
+
+                    elif weights == '1':
+
+                        self.G.add_weighted_edges_from([(s2, s1, 1)])
+
+
 
             elif tik.class_id =='III': #III类tik
                 # 处理 inter点
@@ -161,9 +174,17 @@ class DpSolver:
                     for s1,s2 in  itertools.combinations(inter, 2) :
 
                         if self.__si_max_tk(s1) < tk:
-                            self.G.add_weighted_edges_from([(s1, s2, tk)])
+                            if weights=='tk':
+                                self.G.add_weighted_edges_from([(s1, s2, tk)])
+                            elif weights=='1':
+                                self.G.add_weighted_edges_from([(s1, s2, 1)])
+
                         else:
-                            self.G.add_weighted_edges_from([(s2, s1, tk)])
+                            if weights=='tk':
+                                self.G.add_weighted_edges_from([(s2, s1, tk)])
+                            elif weights=='1':
+                                self.G.add_weighted_edges_from([(s2, s1, 1)])
+
                 # 处理passIn
                 # 处理passOut
                 # 包括2个以上卫星函数相交
@@ -171,6 +192,22 @@ class DpSolver:
         #把函数的顶点和中点作为点位置
         #from none
         #sub graph heads
+
+        print("--> graph finished")
+        print(self.G)
+
+    def mst_run(self):
+        # nx.draw(self.G,with_labels=True)
+        # plt.show()
+
+        path = nx.dijkstra_path(self.G, source='s2520', target='s2616')
+        path.insert(0,'none')
+        return path
+        # print(nx.shortest_path(tmp_graph, source='s2520', target='s2519'))
+        # path = nx.all_pairs_shortest_path(self.G)
+        # print(path)
+
+    def get_roots_and_leaves(self):
         roots = []
         leaves =[]
 
@@ -201,14 +238,14 @@ class DpSolver:
         self.roots = roots
         self.leaves = leaves
 
-        print("--> graph finished")
-        print(self.G)
+
         print("-> graph roots num:{}\n {}".format(len(self.roots),self.roots))
         print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
 
-    
     def run(self):
+        self.get_roots_and_leaves()
+
         print("\nPROBLEM SOVING BY DP")
 
         hop={}
@@ -338,7 +375,8 @@ class DpSolver:
                 final_solution.extend(p)
 
         self.final_hop = final_hop
-        self.final_soulution = final_solution
+        self.final_solution = final_solution
+        return  final_solution
 
             # print('opt: ',opt)
             # print('k:',k)
@@ -352,23 +390,31 @@ class DpSolver:
             else:
                 max_acc = np.argmax(row)
                 tmp_list.append(self.data.df_align.columns[max_acc])
-        rss_list = ['none']
+        final_solution = ['none']
 
         #去掉成片的重复access name
         i=0
-        rss_list.append(tmp_list[0])
+        final_solution.append(tmp_list[0])
         while True:
-            if tmp_list[i] == rss_list[-1]:
+            if tmp_list[i] == final_solution[-1]:
                 pass
             else:
-                rss_list.append(tmp_list[i])
+                final_solution.append(tmp_list[i])
             i+=1
             if i >= len(tmp_list):
                 break
 
-        print('rss list :{}'.format(rss_list))
-        self.final_soulution = rss_list
-        self.final_hop = len(self.final_soulution)
+        print('rss list :{}'.format(final_solution))
+        self.final_solution = final_solution
+        self.final_hop = len(self.final_solution)
+        return final_solution
+   
+    def get_inter_tks(self,final_solution):
+        inter_tk_dict = {}
+        for s_prev, s_next in zip(final_solution[1:-1], final_solution[2:]):
+            inter_tk_dict[s_prev, s_next] = self.data.getInterTk(s_prev, s_next)
+
+        return  inter_tk_dict
 
 
     def result_stat(self):
@@ -377,14 +423,18 @@ class DpSolver:
         print("\nPROBLEM STAT")
 
 
-        final_solution = self.final_soulution
+        final_solution = self.final_solution
         final_hop = self.final_hop
         # 找到每个解
         # 的分量的交点,后面移动到 data prep 更合适
-        inter_tk_dict={}
-        for s_prev,s_next in zip(final_solution[1:-1],final_solution[2:]):
-            inter_tk_dict[s_prev,s_next] = self.data.getInterTk(s_prev,s_next)
+        inter_tk_dict=self.get_inter_tks(final_solution)
+
+
+
+
         total_time = self.__path_tk(final_solution, 'tail')-self.__path_tk(final_solution, 'head')
+
+
         #断路时间
         disconn_time=0
         disconn_times=0
@@ -409,9 +459,53 @@ class DpSolver:
         #returns
 
 
-        self.inter_tk_dict = inter_tk_dict
-        self.final_soulution = final_solution
+    def get_selected_alg_base(self):
+        inter_tk_dict = self.inter_tk_dict
+        final_solution = self.final_solution
+        data = self.data
+        nan_assign = 0
 
+        solution_length = len(final_solution)
+
+        ret_tks = {}
+        for cnt in range(1, solution_length - 1):
+            s_pre, s, s_next = final_solution[cnt - 1], final_solution[cnt], final_solution[cnt + 1]
+            if s_pre == 'none':
+                ret_tks[s] = (self.data.acc2tk[s][0], inter_tk_dict[(s, s_next)])
+                continue
+            if s_next == 'none':
+                ret_tks[s] = (inter_tk_dict[(s_pre, s)], self.data.acc2tk[s][-1])
+
+                continue
+            if s == 'none':
+                continue
+
+            ret_tks[s] = (inter_tk_dict[(s_pre, s)], inter_tk_dict[(s, s_next)])
+        # 最后一个星,补上
+        ret_tks[final_solution[-1]] = (
+        inter_tk_dict[(final_solution[-2], final_solution[-1])], self.data.acc2tk[final_solution[-1]][-1])
+
+
+        arrs=[]
+        for access_name in ret_tks.keys():
+
+            # for line in data.get_sublines(access_name, [alg_base], with_time=True):
+            line = data.df_align[access_name]
+                # if access_name in ret_tks.keys():
+            best_mask = (line.index >= ret_tks[access_name][0]) * (line.index <= ret_tks[access_name][1])
+            if len(arrs) > 0:
+                start = arrs[-1].index[-1]
+                stop = line[best_mask].index[0]
+                if start+1 != stop:#s将断线的地方设置为0
+                    time_index = np.linspace(start= start+1,stop=stop,num=stop-start)
+                    arrs.append(pd.Series(np.ones_like(time_index)*nan_assign,index=time_index))
+                    # print("--> {} to {} is null".format(arrs[-1].index[-1],line[best_mask].index[0]))
+
+
+            arrs.append(line[best_mask][:-1])
+
+        return pd.concat(arrs,axis=0)
+        # pass
 
     def _get_inter_tks(self,solution):
         pass

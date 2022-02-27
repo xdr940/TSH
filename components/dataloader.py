@@ -130,12 +130,16 @@ class AerDataset:
 
                 CT = CT.rename(item)
                 df = pd.concat([df, CT], axis=1)
+            if item == 'Pr(dBW)':
+                Pr = EIRP + Gr - Lf
+                Pr = Pr.rename(item)
+                df = pd.concat([df, Pr], axis=1)
             if item =='(Ct)Gbps':
                 pass
             if item =='CT(W/K)' and 'CT(dBW/K)' in df.columns:
                 pass
-            if item =='Pr(dBW)':
-                Pr = EIRP + Gr - Lf
+
+
 
         return df
 

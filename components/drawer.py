@@ -41,11 +41,19 @@ class Drawer:
 
                     if position:
                         plt.text(position[access_name][0]*10+self.x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
-
+        plt.ylabel('C/no(dB.Hz)')
         return fig
 
-    def drawAerSolution(self,config,data,final_solution,position,inter_tk_dict,data_processed):
+    def drawAerSolution(self,config,data,final_solution,position,inter_tk_dict):
+        '''
 
+        :param config:
+        :param data:
+        :param final_solution:
+        :param position:
+        :param inter_tk_dict:
+        :return:
+        '''
         fig = plt.figure(2,figsize=(7,4))
 
         solution_length = len(final_solution)
@@ -56,10 +64,10 @@ class Drawer:
         for cnt in range(1, solution_length -1):
             s_pre, s, s_next = final_solution[cnt - 1], final_solution[cnt], final_solution[cnt + 1]
             if s_pre == 'none':
-                ret_tks[s] = (data_processed.acc2tk[s][0], inter_tk_dict[(s, s_next)])
+                ret_tks[s] = (data.acc2tk[s][0], inter_tk_dict[(s, s_next)])
                 continue
             if s_next == 'none':
-                ret_tks[s] = (inter_tk_dict[(s_pre, s)], data_processed.acc2tk[s][-1])
+                ret_tks[s] = (inter_tk_dict[(s_pre, s)], data.acc2tk[s][-1])
 
                 continue
             if s == 'none':
@@ -67,7 +75,7 @@ class Drawer:
 
             ret_tks[s] = (inter_tk_dict[(s_pre, s)], inter_tk_dict[(s, s_next)])
         # 最后一个星,补上
-        ret_tks[final_solution[-1]] = (inter_tk_dict[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
+        ret_tks[final_solution[-1]] = (inter_tk_dict[(final_solution[-2], final_solution[-1])], data.acc2tk[final_solution[-1]][-1])
 
         # x_min = int(data.df['time'].min())
         # x_max = int(data.df['time'].max())
@@ -97,14 +105,15 @@ class Drawer:
                             'r')
                         plt.text(position[access_name][0] * 10 + data.all_tks[0], position[access_name][1], access_name,
                                  fontsize=10, color="k", style="italic")
-        plt.title("Access graph")
+        plt.ylabel('C/no(dB.Hz)')
+
 
         plt.xlabel("Time (second)")
 
 
         return fig
 
-    def drawAccessSolution(self,config,data,final_solution,position,inter_tk_dict,data_processed):
+    def drawAccessSolution(self,config,data,final_solution,position,inter_tk_dict):
         fig = plt.figure(4,figsize=(14,4))
         solution_length = len(final_solution)
 
@@ -114,10 +123,10 @@ class Drawer:
         for cnt in range(1, solution_length - 1):
             s_pre, s, s_next = final_solution[cnt - 1], final_solution[cnt], final_solution[cnt + 1]
             if s_pre == 'none':
-                ret_tks[s] = (data_processed.acc2tk[s][0], inter_tk_dict[(s, s_next)])
+                ret_tks[s] = (data.acc2tk[s][0], inter_tk_dict[(s, s_next)])
                 continue
             if s_next == 'none':
-                ret_tks[s] = (inter_tk_dict[(s_pre, s)], data_processed.acc2tk[s][-1])
+                ret_tks[s] = (inter_tk_dict[(s_pre, s)], data.acc2tk[s][-1])
 
                 continue
             if s == 'none':
@@ -126,11 +135,11 @@ class Drawer:
             ret_tks[s] = (inter_tk_dict[(s_pre, s)], inter_tk_dict[(s, s_next)])
         # 最后一个星,补上
         ret_tks[final_solution[-1]] = (
-        inter_tk_dict[(final_solution[-2], final_solution[-1])], data_processed.acc2tk[final_solution[-1]][-1])
+        inter_tk_dict[(final_solution[-2], final_solution[-1])], data.acc2tk[final_solution[-1]][-1])
 
 
-        all_start_tk = data_processed.all_tks[0]
-        all_end_tk = data_processed.all_tks[1]
+        all_start_tk = data.all_tks[0]
+        all_end_tk = data.all_tks[1]
         plt.xlim([self.x_min - 100, self.x_max + 100])
         # plt.ylim([self.y_min - self.margin / 10, self.y_max + self.margin / 10])
         end_with ={0:all_start_tk}# height=0, end_tk=0
@@ -181,7 +190,7 @@ class Drawer:
                         plt.plot(
                             line.T[0][best_mask],
                             height_dict[access_name]*np.ones_like(line.T[0])[best_mask],
-                            'r')
+                            'r',linewidth=5)
                         plt.text(position[access_name][0] * 10 + data.all_tks[0], height_dict[access_name], access_name,
                                  fontsize=10, color="k", style="italic")
         plt.title("Access graph")
@@ -194,12 +203,15 @@ class Drawer:
         font_size =14
         edge_color=[]
         fig = plt.figure(3,figsize=(7,4))
+        labels = nx.get_edge_attributes(G, 'weight')
 
         if position ==None:
             position = nx.spring_layout(G)
         if final_solution==None:
             nx.draw(G,
                 pos=position,node_color = 'b', edge_color = 'k', with_labels = True,font_size = font_size, node_size = 120)
+            nx.draw_networkx_edge_labels(G, position, edge_labels=labels)
+
         else:
             red_edges = []
             for prev,next in zip(final_solution[:-1],final_solution[1:]):
@@ -209,7 +221,6 @@ class Drawer:
                     edge_color.append('r')
                 else:
                     edge_color.append('k')
-
             nx.draw(G,
                     pos=position,
                     node_color='b',
@@ -218,5 +229,6 @@ class Drawer:
                     font_size=font_size,
                     node_size=120
                     )
+        plt.show()
 
         return fig
