@@ -192,20 +192,9 @@ class DpSolver:
         #把函数的顶点和中点作为点位置
         #from none
         #sub graph heads
-
+        self.get_roots_and_leaves()
         print("--> graph finished")
         print(self.G)
-
-    def mst_run(self):
-        # nx.draw(self.G,with_labels=True)
-        # plt.show()
-
-        path = nx.dijkstra_path(self.G, source='s2520', target='s2616')
-        path.insert(0,'none')
-        return path
-        # print(nx.shortest_path(tmp_graph, source='s2520', target='s2519'))
-        # path = nx.all_pairs_shortest_path(self.G)
-        # print(path)
 
     def get_roots_and_leaves(self):
         roots = []
@@ -243,21 +232,43 @@ class DpSolver:
         print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
 
-    def run(self):
-        self.get_roots_and_leaves()
+    def mst_run(self):
+        # nx.draw(self.G,with_labels=True)
+        # plt.show()
+        paths={}
+        for root in self.roots:
+            for leaf in self.leaves:
+                try:
+                    path = nx.dijkstra_path(self.G, source=root, target=leaf)
+                    paths[root,leaf]=path
+                except:
+                    continue
+                    pass
+        print('roots:{}'.format(self.roots))
+        print('leaves:{}'.format(self.leaves))
+        root_leaf = sorted(paths.values(),reverse=True,key=lambda x:len(x))
+        final_solutoin = self.max_cover(paths,mode='mst')
+        root_leaf[0].insert(0,'none')
+        return final_solutoin
+        # print(nx.shortest_path(tmp_graph, source='s2520', target='s2519'))
+        # path = nx.all_pairs_shortest_path(self.G)
+        # print(path)
+
+    def dp_run(self):
+        # self.get_roots_and_leaves()
 
         print("\nPROBLEM SOVING BY DP")
 
-        hop={}
-        opt={}
-        hop['none'] = 0
-        opt['none']=0
-        route={}
+        hop_dict={}
+        opt_dict={}
+        hop_dict['none'] = 0
+        opt_dict['none']=0
+        route_dict={}
         for root in self.roots:#先对根节点(in-degree ==0)的都预处理
             tj,tj_next = self.data.acc2tk[root][0],self.data.acc2tk[root][-1]
-            opt[root] = (hop['none']* opt['none'] + self.__integ(root,tj,tj_next))/(hop['none']+1)
-            hop[root] = hop['none'] + 1
-            route[root] = 'none'
+            opt_dict[root] = (hop_dict['none']* opt_dict['none'] + self.__integ(root,tj,tj_next))/(hop_dict['none']+1)
+            hop_dict[root] = hop_dict['none'] + 1
+            route_dict[root] = 'none'
 
         for si in tqdm(self.__trave()):
             # if si =='s3017':
@@ -268,9 +279,9 @@ class DpSolver:
             if len(pre_sis)==0  : # 没有前置si,si即为相位最靠前的卫星
 
                 tj = self.data.acc2tk[si][0]
-                opt[si] =(hop['none']* opt['none'] + self.__integ(si,tj,tj_next))/(hop['none']+1)
-                hop[si] = hop['none']+1
-                route[si] = 'none'
+                opt_dict[si] =(hop_dict['none']* opt_dict['none'] + self.__integ(si,tj,tj_next))/(hop_dict['none']+1)
+                hop_dict[si] = hop_dict['none']+1
+                route_dict[si] = 'none'
 
             else:
                 tmp_opt = 0
@@ -283,22 +294,17 @@ class DpSolver:
                     tj = self.G.edges[pre_si,si]['weight']
                     si_last_integ = self.__integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
                     integ = self.__integ(si,tj,tj_next)
-                    tmp = (hop[pre_si]*opt[pre_si] - si_last_integ + integ)/(hop[pre_si]+1)
+                    tmp = (hop_dict[pre_si]*opt_dict[pre_si] - si_last_integ + integ)/(hop_dict[pre_si]+1)
                     if tmp > tmp_opt:
                         tmp_opt = tmp
                         arg_opt = pre_si
 
-                opt[si] =tmp_opt
-                hop[si] = hop[arg_opt]+1
-                route[si] = arg_opt
+                opt_dict[si] =tmp_opt
+                hop_dict[si] = hop_dict[arg_opt]+1
+                route_dict[si] = arg_opt
 
-            # last_si = si
 
-        #returns
-        self.opt = opt
-        self.hop= hop
-        self.route = route
-
+        self.opt_dict=opt_dict
 
         #post process
 
@@ -309,78 +315,206 @@ class DpSolver:
 
             end_node = leaf
             while end_node != 'none':
-                paths[leaf].append(self.route[end_node])
-                end_node = self.route[end_node]
+                paths[leaf].append(route_dict[end_node])
+                end_node = route_dict[end_node]
             paths[leaf].reverse()
+            paths[leaf]=paths[leaf][1:]
+            paths[paths[leaf][0],leaf] = paths[leaf]
+            del paths[leaf]
+        for path in paths.values():
+            print('-->:{}'.format(path))
+        final_solution = self.max_cover(paths,mode='dp')#最大覆盖方法筛选
+        return final_solution
 
-        candidate_paths = {}
-        for root in self.roots:
-            argmax_leaf = None
-            sub_opt = 0
-            for leaf in self.leaves:
-                if root in paths[leaf] and self.opt[leaf] > sub_opt:
-                    sub_opt = self.opt[leaf]
-                    argmax_leaf = leaf
-            candidate_paths[root] = argmax_leaf
 
-        # 选择候选路径中几个最大覆盖的多个路径为最后结果
-        solutions = []
+    def __keep(self,path_i,path_j,mode):
+        '''
+        确定是留2个还是留任意一个, 共计三种状态
 
-        hop = []
-        opt_values = []
-        for index_node, path in paths.items():
-            for root, leaf in candidate_paths.items():
-                if root == None or leaf == None:
-                    continue
-                if leaf == index_node and root in path:
-                    # best paths cover all sub graphs
-                    print("-> (sub) path:\n{}".format(path))
-                    print("path value: {}, path handover times:{}\n".format(self.opt[leaf], self.hop[leaf]))
-                    solutions.append(path)
-                    hop.append(self.hop[leaf])
-                    opt_values.append(self.opt[leaf])
+        :param path0:
+        :param path1:
+        :return:
+            0: 留0
+            1: 留1
+            2:全留
+        '''
+        test_list = [path_i[0],path_i[1],path_j[0],path_j[1]]
+        ret = list(np.argsort(test_list))
+        if len(set(test_list))==2:
 
-        max_len = 0
-        final_solution = None
-        final_hop = 0
-        final_opt_value = 0
-        for p in solutions:
-            start = self.data.acc2tk[p[1]][0]
-            end = self.data.acc2tk[p[-1]][-1]
-            this_len = end - start
-            if this_len > max_len:  # 持续时间大于目前最大
-                max_len = this_len
-                final_solution = p
-                final_hop = self.hop[p[-1]]
-                final_opt_value = self.opt[p[-1]]
-            elif self.__path_tk(p, 'tail') < self.__path_tk(final_solution, 'head'):  # 持续时间段在目前前面, 可以合并
-                p.extend(final_solution)
+            if mode=='dp' and path_i[2]>path_j[2] :
+                return 0
+            elif mode =='mst' and path_i[3]<path_j[3] :
+                return 0
+            else:
+                return 1
 
-                final_opt_value = final_hop * final_opt_value + self.hop[p[-1]] * self.opt[p[-1]]
+            # 相等
+        elif len(set(test_list))==3:
+            if test_list[1]==test_list[2]:
+            # if ret ==[0,1,2,3]:
+                return 2
+            # 0|--|1
+            #    2|--|3
+            #[0,1,1,2]-->[0,1,2,3]
+            # elif ret ==[2,0,3,1]:
+            if test_list[0]==test_list[3]:
+                return 2
+            #   0|--|1
+            #2|--|3
+            # [1,2,0,1]--> [2,0,3,1]
 
-                final_hop = final_hop + self.hop[p[-1]] + 1
+            # if ret ==[0,2,1,3]:
+            if test_list[1]==test_list[3]:
+                # |----|
+                #   |--|
+                # [0 ,2, 1, 2]
+                return 0
+            if test_list[0]==test_list[2] and test_list[3]>test_list[1]:
+                # 0|--|1
+                # 2|----|3
+                # [0,1,0,2]
+                return 1
 
-                final_opt_value /= final_hop
 
-                final_solution = p
+            if test_list[0]==test_list[2] and test_list[1]>test_list[3]:
+                # |----|
+                # |--|
+                # [0,2,0,1] -->[0,2,3,1]
+                return 0
+        elif len(set(test_list))==4:
+            pass
 
-            elif self.__path_tk(p, 'head') > self.__path_tk(final_solution, 'tail'):  # 持续时间在目前后面,可以合并
+            if ret == [2, 0, 1, 3]  :
+                #   |--|
+                #  |----|
+                #  [1,2,0,3]--> [2,0,1,3]
+                return 1
+            elif ret == [0, 2, 3, 1]:
+                #
+                #    |----|
+                #     |--|
+                #   [0,3,1,2] -> [0,2,3,1]
+                return 0
 
-                final_opt_value = final_hop * final_opt_value + self.hop[p[-1]] * self.opt[p[-1]]
 
-                final_hop = final_hop + self.hop[p[-1]] + 1
+            if ret == [0, 2, 1, 3] :
+                # |---|
+                #   |---|
+                if (path_i[1]-path_i[0]) >(path_j[1]-path_j[0]):
+                    return 0
+                else:
+                    return 1
+                # return 2
 
-                final_opt_value /= final_hop
 
-                final_solution.extend(p)
+            if ret ==[1, 3, 0, 2]:
+                #      |---|
+                #    |---|
+                if (path_i[1]-path_i[0]) >(path_j[1]-path_j[0]):
+                    return 0
+                else:
+                    return 1
+            if ret == [0, 1, 2 , 3 ] or [2,3,0,1]:
+                # |--|
+                #      |--|
+                #
+                #        |--|
+                #  |--|
+                return 2
+                #不想交
 
-        self.final_hop = final_hop
-        self.final_solution = final_solution
-        return  final_solution
 
-            # print('opt: ',opt)
-            # print('k:',k)
+
+    def max_cover(self,paths_dict,mode):
+        # 按照结束时刻, 从大到小排列
+        # for path in paths
+        #
+        paths_list_detail=[]
+        if mode=='dp':
+            for (root,leaf), path in paths_dict.items():
+                paths_list_detail.append(
+                    (
+                        (root,leaf),#table[i][0]
+                        (
+                            self.data.acc2tk[path[0]][0],   #table[i][1][0] start
+                            self.data.acc2tk[path[-1]][-1], #table[i][1][1] end
+                            self.opt_dict[leaf],             #table[i][1][2] opt value
+                            len(path)
+                        )
+                    )
+                )
+        elif mode =='mst':
+            for (root,leaf), path in paths_dict.items():
+                paths_list_detail.append(
+                    (
+                        (root,leaf),#table[i][0]
+                        (
+                            self.data.acc2tk[path[0]][0],   #table[i][1][0] start
+                            self.data.acc2tk[path[-1]][-1], #table[i][1][1] end
+                            1 ,            #table[i][1][2] opt value
+                            len(path)
+                        )
+                    )
+                )
+
+
+        # 按照覆盖时间从小到大排列
+        # 如果有被完全覆盖的, drop掉
+        # 如果有恰好覆盖的, drop opt低的
+        # 找最大覆盖的n个
+
+
+        # sort1 按照结束时间倒序排
+
+
+
+        # path_table=[
+        #     (('1','2'),  (7, 10, 23)),
+        #     (('3', '4'), (4, 10, 4)),
+        #     (('6', '5'), (2, 10, 12)),
+        #     (('7', '8'), (9, 12, 3)),
+        #     (('9', '10'),(9, 13, 3)),
+        #     (('11', '12'),(1, 2, 3)),
+        #     (('13', '14'),(7, 10, 3)),
+        #
+        # ]
+        # path_dict={}
+        # path_table = sorted(path_table,reverse=True,key=lambda x:(x[1][1]-x[1][0]))
+        # for tab in path_table:
+        #     print('\n', tab)
+        # print('-->')
+        del_set = set([])
+        for path_i,path_j in itertools.combinations(paths_list_detail,2):
+            if path_i[0] in del_set or path_j[0] in del_set:
+                continue
+            sta = self.__keep(path_i[1],path_j[1],mode)
+
+
+            if sta ==0:
+                del_set.add(path_j[0])
+            elif sta ==1 :
+                del_set.add(path_i[0])
+        filted_paths_dict={}
+        for item,value in paths_dict.items():
+            if item not in del_set:
+                value.insert( 0,'none')
+                filted_paths_dict[item] = value
+
+        filted_paths_list = sorted(filted_paths_dict.values(),reverse=False,key=lambda x:self.data.acc2tk[x[1]][0])
+        final_solution=[]
+        for path in filted_paths_list:
+            final_solution+=path
+        return final_solution
+
+
+
+
     def rss_run(self):
+        '''
+        最强信号选择
+        :return:
+        '''
         print("\nPROBLEM SOVING BY RSS")
         tmp_list = []
         for idx,row in self.data.df_align.iterrows():
@@ -417,14 +551,13 @@ class DpSolver:
         return  inter_tk_dict
 
 
-    def result_stat(self):
+    def result_stat(self,final_solution):
 
         # 记录所有最大联通子图的可能路径
         print("\nPROBLEM STAT")
 
 
-        final_solution = self.final_solution
-        final_hop = self.final_hop
+        final_hop = len(final_solution)
         # 找到每个解
         # 的分量的交点,后面移动到 data prep 更合适
         inter_tk_dict=self.get_inter_tks(final_solution)
