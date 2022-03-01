@@ -40,17 +40,19 @@ def main(args):
     drawer = Drawer()
     #
     solver = DpSolver(data)
-    solver.build_graph(weights='1')
+    solver.build_graph(weights='tk')
 
 
-    final_solution = solver.shortest_path()
+    final_solution = solver.dp_run()
     # final_solution = solver.rss_run()
-    # solver.result_stat()
+    # final_solution = solver.mst_run()
+    #
     inter_tk_dict = solver.get_inter_tks(final_solution)
 
-    # final_value = solver.get_selected_alg_base()
+    final_value = solver.get_selected_alg_base(inter_tk_dict,final_solution)
+    solver.result_stat(final_solution,final_value)
 
-    # #
+    #
     #
     fig1 = drawer.drawAer(data, config=config,position=data.position)
     # plt.plot(final_value,'r')
@@ -67,7 +69,7 @@ def main(args):
                                   inter_tk_dict=inter_tk_dict,
                              )
     fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=final_solution)
-    # figs = drawer.drawGraph(solver.G,position = data.position)
+    figs = drawer.drawGraph(solver.G,position = data.position)
     #
     #
     #

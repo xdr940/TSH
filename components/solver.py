@@ -192,9 +192,23 @@ class DpSolver:
         #把函数的顶点和中点作为点位置
         #from none
         #sub graph heads
-        self.get_roots_and_leaves()
+        self.get_roots_and_leaves2()
         print("--> graph finished")
         print(self.G)
+    def get_roots_and_leaves2(self):
+        pass
+        roots=[]
+        leaves=[]
+        for acc in self.data.access_names:
+            if self.data.acc2tk[acc][0] == self.data.all_tks[0]:
+                roots.append(acc)
+            if self.data.acc2tk[acc][-1] == self.data.all_tks[-1]:
+                leaves.append(acc)
+
+        self.roots = roots
+        self.leaves = leaves
+        print("-> graph roots num:{}\n {}".format(len(self.roots), self.roots))
+        print("-> graph leaves num:{} \n{}".format(len(self.leaves), self.leaves))
 
     def get_roots_and_leaves(self):
         roots = []
@@ -254,7 +268,16 @@ class DpSolver:
         # path = nx.all_pairs_shortest_path(self.G)
         # print(path)
 
+
     def dp_run(self):
+        def check_start_stamp(access):
+            pass
+            if self.data.acc2tk[access][0] == self.data.all_tks[0]:
+                return self.data.all_tks[0]
+            elif route_dict[access]=='none':
+                return self.data.acc2tk[access][0]
+            else:
+                return check_start_stamp(route_dict[access])
         # self.get_roots_and_leaves()
 
         print("\nPROBLEM SOVING BY DP")
@@ -277,7 +300,8 @@ class DpSolver:
             tj_next = self.data.acc2tk[si][-1]
 
             if len(pre_sis)==0  : # 没有前置si,si即为相位最靠前的卫星
-
+                # if si not in self.roots:
+                #     continue
                 tj = self.data.acc2tk[si][0]
                 opt_dict[si] =(hop_dict['none']* opt_dict['none'] + self.__integ(si,tj,tj_next))/(hop_dict['none']+1)
                 hop_dict[si] = hop_dict['none']+1
@@ -286,6 +310,7 @@ class DpSolver:
             else:
                 tmp_opt = 0
                 arg_opt=0
+                acc_opt ={}
                 for pre_si in pre_sis:
 
                     if (pre_si ,si)not in self.G.edges: #这里遍历方法不同可能会出错
@@ -294,14 +319,20 @@ class DpSolver:
                     tj = self.G.edges[pre_si,si]['weight']
                     si_last_integ = self.__integ(pre_si,tj,self.data.acc2tk[pre_si][-1])
                     integ = self.__integ(si,tj,tj_next)
-                    tmp = (hop_dict[pre_si]*opt_dict[pre_si] - si_last_integ + integ)/(hop_dict[pre_si]+1)
-                    if tmp > tmp_opt:
-                        tmp_opt = tmp
-                        arg_opt = pre_si
+                    acc_opt[pre_si] = (hop_dict[pre_si]*opt_dict[pre_si] - si_last_integ + integ)/(hop_dict[pre_si]+1)
+                    # if tmp > tmp_opt :
+                    #     tmp_opt = tmp
+                    #     arg_opt = pre_si
+                # if acc_opt:
+                acc_opt  = sorted(acc_opt.items(),reverse=True, key=lambda x: x[1])
+                for item in acc_opt:
+                    if route_dict[item[0]]=='none' and self.data.acc2tk[item[0]][0]!=self.data.all_tks[0]:
+                        continue
 
-                opt_dict[si] =tmp_opt
-                hop_dict[si] = hop_dict[arg_opt]+1
-                route_dict[si] = arg_opt
+                    opt_dict[si] =item[1]
+                    hop_dict[si] = hop_dict[item[0]]+1
+                    route_dict[si] = item[0]
+                    break
 
 
         self.opt_dict=opt_dict
@@ -321,8 +352,9 @@ class DpSolver:
             paths[leaf]=paths[leaf][1:]
             paths[paths[leaf][0],leaf] = paths[leaf]
             del paths[leaf]
+        print('--> paths:')
         for path in paths.values():
-            print('-->:{}'.format(path))
+            print(path)
         final_solution = self.max_cover(paths,mode='dp')#最大覆盖方法筛选
         return final_solution
 
@@ -551,7 +583,13 @@ class DpSolver:
         return  inter_tk_dict
 
 
-    def result_stat(self,final_solution):
+    def result_stat(self,final_solution,final_value):
+        '''
+        假定得到的切换已经是能覆盖全局的了
+        :param final_solution:
+        :param final_value:
+        :return:
+        '''
 
         # 记录所有最大联通子图的可能路径
         print("\nPROBLEM STAT")
@@ -577,12 +615,14 @@ class DpSolver:
                 disconn_times +=1
 
         self.inter_tk_dict = inter_tk_dict
+
+
         print('\n-> solution stat'+
               '\n--> best solution:\t{}'.format(final_solution)+
               # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
               '\n--> handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
               '\n--> avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
-              # '\n--> avg alg base:\t{:.2f}.'.format(final_opt_value *final_hop/ total_time) +
+              '\n--> avg alg base:\t{:.2f}.'.format(np.mean(final_value)) +
               '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
 
               )
@@ -592,9 +632,7 @@ class DpSolver:
         #returns
 
 
-    def get_selected_alg_base(self):
-        inter_tk_dict = self.inter_tk_dict
-        final_solution = self.final_solution
+    def get_selected_alg_base(self,inter_tk_dict,final_solution):
         data = self.data
         nan_assign = 0
 

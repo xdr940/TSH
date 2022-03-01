@@ -131,7 +131,7 @@ class AerDataset:
                 CT = CT.rename(item)
                 df = pd.concat([df, CT], axis=1)
             if item == 'Pr(dBW)':
-                Pr = EIRP + Gr - Lf
+                Pr = EIRP + Gr - Lf+100
                 Pr = Pr.rename(item)
                 df = pd.concat([df, Pr], axis=1)
             if item =='(Ct)Gbps':
@@ -365,7 +365,7 @@ class AerDataset:
         self.__accs_init()
         cost = time_stat(start)
 
-        print('-> parse over')
+        print('-> parse over, use {:.2f} sec'.format(cost))
 
 
     def __tiks_init(self):
