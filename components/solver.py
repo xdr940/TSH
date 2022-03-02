@@ -8,16 +8,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from components.AcTik import Tik
 #using tk2acc,acc2tk,crossLog, inter_tks
-from utils.tool import dfs_depth,max_d
+from utils.tool import get_now,time_stat
 class TimeStamp:
     def __init__(self):
         pass
 
-class Solver:
-    def __init__(self):
-        pass
 
-class DpSolver:
+
+class Solver:
     def __init__(self,data,alg_base="Max - Range (km)"):
         self.data = data
         #tk2acc
@@ -134,7 +132,8 @@ class DpSolver:
 
     def build_graph(self,weights='1'):
         assert(weights in ['1','tk'])
-        print("\nGRAPH BUILDING")
+        start = get_now()
+        print("\n-> GRAPH BUILDING")
         #build the graph whose access as the node
 
         self.G = nx.DiGraph(date='2021-12-22', name='handover')
@@ -207,8 +206,8 @@ class DpSolver:
 
         self.roots = roots
         self.leaves = leaves
-        print("-> graph roots num:{}\n {}".format(len(self.roots), self.roots))
-        print("-> graph leaves num:{} \n{}".format(len(self.leaves), self.leaves))
+        print("--> graph roots num:{} {}".format(len(self.roots), self.roots))
+        print("--> graph leaves num:{} {}".format(len(self.leaves), self.leaves))
 
     def get_roots_and_leaves(self):
         roots = []
@@ -542,12 +541,14 @@ class DpSolver:
 
 
 
-    def rss_run(self):
+    def mea_run(self):
         '''
         最强信号选择
         :return:
         '''
-        print("\nPROBLEM SOVING BY RSS")
+        print("\n-> PROBLEM SOVING BY RSS")
+        start = get_now()
+
         tmp_list = []
         for idx,row in self.data.df_align.iterrows():
             row = row.replace(np.nan, 0)
@@ -570,9 +571,7 @@ class DpSolver:
             if i >= len(tmp_list):
                 break
 
-        print('rss list :{}'.format(final_solution))
-        self.final_solution = final_solution
-        self.final_hop = len(self.final_solution)
+        time_stat(start)
         return final_solution
    
     def get_inter_tks(self,final_solution):
@@ -583,53 +582,6 @@ class DpSolver:
         return  inter_tk_dict
 
 
-    def result_stat(self,final_solution,final_value):
-        '''
-        假定得到的切换已经是能覆盖全局的了
-        :param final_solution:
-        :param final_value:
-        :return:
-        '''
-
-        # 记录所有最大联通子图的可能路径
-        print("\nPROBLEM STAT")
-
-
-        final_hop = len(final_solution)
-        # 找到每个解
-        # 的分量的交点,后面移动到 data prep 更合适
-        inter_tk_dict=self.get_inter_tks(final_solution)
-
-
-
-
-        total_time = self.__path_tk(final_solution, 'tail')-self.__path_tk(final_solution, 'head')
-
-
-        #断路时间
-        disconn_time=0
-        disconn_times=0
-        for i in range(1,len(final_solution)-1):
-            if final_solution[i]=='none'and final_solution[i-1]!='none'and final_solution[i+1]!='none':
-                disconn_time +=(self.data.getInterTk( 'none',final_solution[i+1]) - self.data.getInterTk(final_solution[i-1], 'none'))
-                disconn_times +=1
-
-        self.inter_tk_dict = inter_tk_dict
-
-
-        print('\n-> solution stat'+
-              '\n--> best solution:\t{}'.format(final_solution)+
-              # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
-              '\n--> handover times: \t{}, disconn times:{}'.format(final_hop,disconn_times)+
-              '\n--> avg duration:\t{:.2f}(s).'.format(total_time/final_hop)+
-              '\n--> avg alg base:\t{:.2f}.'.format(np.mean(final_value)) +
-              '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time,disconn_time,100*disconn_time/total_time)
-
-              )
-
-
-
-        #returns
 
 
     def get_selected_alg_base(self,inter_tk_dict,final_solution):
