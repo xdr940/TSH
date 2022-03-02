@@ -22,36 +22,32 @@ class Drawer:
 
 
 
-    def __get_data_item__(self):
-        pass
 
-    def drawAer(self,position=None,IsSubplot=False):
-
-
-        if not IsSubplot:
-            fig = plt.figure(1,figsize=(7,4))
+    def drawAer(self,ax,position=None):
 
 
 
-        plt.xlim([self.x_min - 100, self.x_max + 100])
-        plt.ylim([self.y_min -self.margin/10 , self.y_max + self.margin/10 ])
+
+
+        ax.set_xlim([self.x_min - 100, self.x_max + 100])
+        ax.set_ylim([self.y_min -self.margin/10 , self.y_max + self.margin/10 ])
 
         for sub_idx, col in enumerate(self.data_show_lines [1:]): #different value lines
-            plt.plot(len(self.data_show_lines )-1, 1, sub_idx + 1)  # without time
+            ax.plot(len(self.data_show_lines )-1, 1, sub_idx + 1)  # without time
 
             for idx, access_name in enumerate(self.data.access_names):# different access lines in a value
                 for line in self.data.get_sublines(access_name,[col],with_time=True):# different subline in a line
 
 
-                    plt.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
+                    ax.plot(line.T[0],line.T[1],'{}'.format(self.colors[idx%(len(self.colors))]))
 
                     if position:
-                        plt.text(position[access_name][0]*10+self.x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
-        plt.xlabel(self.data_show_lines[0])
-        plt.ylabel(self.data_show_lines[1])
+                        ax.text(position[access_name][0]*10+self.x_min,position[access_name][1],access_name,fontsize=10, color = "k", style = "italic")
+        ax.set_xlabel(self.data_show_lines[0])
+        ax.set_ylabel(self.data_show_lines[1])
 
 
-    def drawAerSolution(self,final_solution,position,inter_tk_dict,IsSubplot=False):
+    def drawAerSolution(self,ax,final_solution,position,inter_tk_dict):
         '''
 
         :param config:
@@ -61,8 +57,6 @@ class Drawer:
         :param inter_tk_dict:
         :return:
         '''
-        if not IsSubplot:
-            plt.figure(2,figsize=(7,4))
 
         solution_length = len(final_solution)
 
@@ -91,35 +85,35 @@ class Drawer:
         # y_max = int(data.df[config['data_show_lines'][-1]].max())
         # M = y_max-y_min
 
-        plt.xlim([self.x_min - 100, self.x_max + 100])
-        plt.ylim([self.y_min-self.margin/10 , self.y_max+self.margin/10 ])
+        ax.set_xlim([self.x_min - 100, self.x_max + 100])
+        ax.set_ylim([self.y_min-self.margin/10 , self.y_max+self.margin/10 ])
+
 
         #
         for sub_idx, col in enumerate(self.data_show_lines[1:]):  # different value lines
-            plt.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
+            ax.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
 
             for idx, access_name in enumerate(self.data.access_names):  # different access lines in a value
                 for line in self.data.get_sublines(access_name, [col], with_time=True):  # different subline in a line
 
                     # if access_name not in total_solution:
-                            # plt.plot(line.T[0], line.T[1], color=[0.2,0.3,0.4,0.5])
-                    plt.plot(line.T[0], line.T[1], '{}'.format(self.colors[idx % (len(self.colors))]),alpha=0.2)
+                            # ax.plot(line.T[0], line.T[1], color=[0.2,0.3,0.4,0.5])
+                    ax.plot(line.T[0], line.T[1], '{}'.format(self.colors[idx % (len(self.colors))]),alpha=0.2)
 
                     if access_name in ret_tks.keys():
                         best_mask = (line.T[0]>= ret_tks[access_name][0]) *(line.T[0] <= ret_tks[access_name][1])
-                        plt.plot(
+                        ax.plot(
                             line.T[0][best_mask],
                             line.T[1][best_mask],
                             'r')
-                        plt.text(position[access_name][0] * 10 + self.data.all_tks[0], position[access_name][1], access_name,
+                        ax.text(position[access_name][0] * 10 + self.data.all_tks[0], position[access_name][1], access_name,
                                  fontsize=10, color="k", style="italic")
-        plt.xlabel(self.data_show_lines[0])
-        plt.ylabel(self.data_show_lines[1])
+        ax.set_xlabel(self.data_show_lines[0])
+        ax.set_ylabel(self.data_show_lines[1])
 
 
 
-    def drawAccessSolution(self,final_solution,position,inter_tk_dict):
-        fig = plt.figure(4,figsize=(14,4))
+    def drawAccessSolution(self,ax,final_solution,position,inter_tk_dict):
         solution_length = len(final_solution)
 
         # ret tks 就是每个access 实际画出的部分
@@ -145,13 +139,13 @@ class Drawer:
 
         all_start_tk = self.data.all_tks[0]
         all_end_tk = self.data.all_tks[1]
-        plt.xlim([self.x_min - 100, self.x_max + 100])
-        # plt.ylim([self.y_min - self.margin / 10, self.y_max + self.margin / 10])
+        ax.set_xlim([self.x_min - 100, self.x_max + 100])
+        # ax.ylim([self.y_min - self.margin / 10, self.y_max + self.margin / 10])
         end_with ={0:all_start_tk}# height=0, end_tk=0
         height_dict={'none':0}#access name : height
         max_height=0
         for sub_idx, col in enumerate(self.data_show_lines[1:]):  # different value lines
-            plt.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
+            ax.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
 
             for access_name in self.data.access_names:
                 for line in self.data.get_sublines(access_name,[col],with_time=True):# 基本为1
@@ -181,34 +175,31 @@ class Drawer:
 
         #
         for sub_idx, col in enumerate(self.data_show_lines[1:]):  # different value lines
-            plt.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
+            ax.plot(len(self.data_show_lines) - 1, 1, sub_idx + 1)  # without time
 
             for idx, access_name in enumerate(self.data.access_names):  # different access lines in a value
                 for line in self.data.get_sublines(access_name, [col], with_time=True):  # different subline in a line
 
                     # if access_name not in total_solution:
-                    # plt.plot(line.T[0], line.T[1], color=[0.2,0.3,0.4,0.5])
-                    plt.plot(line.T[0], np.ones_like(line.T[0])*height_dict[access_name], '{}'.format(self.colors[idx % (len(self.colors))]), alpha=0.5)
+                    # ax.plot(line.T[0], line.T[1], color=[0.2,0.3,0.4,0.5])
+                    ax.plot(line.T[0], np.ones_like(line.T[0])*height_dict[access_name], '{}'.format(self.colors[idx % (len(self.colors))]), alpha=0.5)
 
                     if access_name in ret_tks.keys():
                         best_mask = (line.T[0] >= ret_tks[access_name][0]) * (line.T[0] <= ret_tks[access_name][1])
-                        plt.plot(
+                        ax.plot(
                             line.T[0][best_mask],
                             height_dict[access_name]*np.ones_like(line.T[0])[best_mask],
                             'r',linewidth=5)
-                        plt.text(position[access_name][0] * 10 + self.data.all_tks[0], height_dict[access_name], access_name,
+                        ax.text(position[access_name][0] * 10 + self.data.all_tks[0], height_dict[access_name], access_name,
                                  fontsize=10, color="k", style="italic")
-        plt.title("Access graph")
-        plt.yticks([])
-        plt.xlabel("Time (second)")
-        return fig
+        ax.set_title("Access graph")
+        ax.set_yticks([])
+        ax.set_xlabel("Time (second)")
 
 
-    def drawGraph(self,G,position=None,final_solution=None,IsSubplot=False):
+    def drawGraph(self,G,position=None,final_solution=None):
         font_size =14
         edge_color=[]
-        if not IsSubplot:
-            plt.figure(3,figsize=(7,4))
         labels = nx.get_edge_attributes(G, 'weight')
 
         if position ==None:
