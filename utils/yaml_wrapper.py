@@ -1,6 +1,6 @@
 import yaml
 import os
-
+from path import Path
 class YamlHandler:
     def __init__(self, file):
         self.file=file
@@ -17,6 +17,6 @@ class YamlHandler:
             return yaml.safe_dump(data, stream=f, sort_keys=False,default_flow_style=False)
 
     def save_log(self,dst_dir):
-        os.system('cp {} {}/settings.yaml'.format(self.file, dst_dir))
+        os.system('cp {} {}'.format(self.file, dst_dir))
 
 

@@ -24,15 +24,15 @@ class AerDataset:
         self.doOrNot = bool(config['Do'])
         self.assigned_units = config['assigned_units']
         self.access_portion = config['access_portion']
-        self.time_portion = config['time_portion']
+        self.time_duration = config['time_duration']
         self.files = []
         for file in config['files']:
             self.files.append(self.path / file)
 
         #data re-load
-        self.out_dir_path = Path(config['dump_path'])  # / time_dir
-        self.out_dir_path.mkdir_p()
-        self.dump_file = self.out_dir_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
+        self.data_prep_path = Path(config['data_prep_path'])  # / time_dir
+        self.data_prep_path.mkdir_p()
+        self.dump_file = self.data_prep_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
 
         #data align
         self.algorithm_base = config['algorithm_base']
@@ -159,9 +159,7 @@ class AerDataset:
             return
         print("\nDATA PRE-PROCCESSING ...")
         #input
-        time_portion = self.time_portion
-        access_portion = self.access_portion
-        random_seed = self.random_seed
+
         files = self.files
         assigned_units = self.assigned_units
 
@@ -224,26 +222,6 @@ class AerDataset:
         df['time'].loc[:] = df['time'].loc[:].astype('int')
         df['Range (km)'].loc[:] = df['Range (km)'].loc[:].astype('float64')
 
-        access_dict = dict(df['access'].value_counts())
-        access_names = list(access_dict.keys())
-        # access selectoin
-        random.seed(random_seed)
-        random.shuffle(access_names)
-
-        start = math.floor(len(access_names) * access_portion[0])
-        end = math.ceil(len(access_names) * access_portion[1])
-        access_names = access_names[start:end]
-
-        time_len = int(df['time'].max())
-        start = math.floor(time_len*time_portion[0])
-        end = math.ceil(time_len*time_portion[1])
-
-        df = df.query('{} in access and time >= {} and time <={}  '.format(access_names,start,end))
-
-        print("-> total time:{}s, selected time:{}s".format(time_len,end-start))
-
-        #data type set
-
 
 
         df = self.data_append_value(
@@ -270,7 +248,9 @@ class AerDataset:
         '''
         print("\nDATA RE-LOADING AND ALIGN")
 
-
+        time_duration = self.time_duration
+        access_portion = self.access_portion
+        random_seed = self.random_seed
 
         df = pd.read_csv(self.dump_file)
         algorithm_base = self.algorithm_base
@@ -278,8 +258,39 @@ class AerDataset:
         df['time'] = np.array(df['time']).astype(np.int32)
         df['access'] = np.array(df['access']).astype(str)
         print(df[['Range (km)']+output_metrics].describe())
-        access_names = list(dict(df ['access'].value_counts()).keys())
-        access_names.sort()
+
+
+        random.seed(random_seed)
+
+        # time selection
+        time_len = int(df['time'].max())
+        start=0
+        end= 0
+        if type(time_duration)==list:
+            start = math.floor(time_len * time_duration[0])
+            end = math.ceil(time_len * time_duration[1])
+        elif type(time_duration) == int:
+            start = random.randrange(0,time_len-time_duration)
+            end = start+time_duration
+        else:
+            print('ERROR IN TIME DURATION')
+            exit(-1)
+        df = df.query('time >= {} and time <={}  '.format(start, end))
+
+
+        # access selectoin
+        access_dict = dict(df['access'].value_counts())
+        access_names = list(access_dict.keys())
+        random.shuffle(access_names)
+        start = math.floor(len(access_names) * access_portion[0])
+        end = math.ceil(len(access_names) * access_portion[1])
+        access_names = access_names[start:end]
+        df = df.query('access in {}  '.format(access_names))
+
+
+
+
+        # data type set
 
 
         # 每个access 可能有多次过境, 将timestamp记录一下, 后面绘图, 或者数据处理都需要用
@@ -356,16 +367,16 @@ class AerDataset:
 
     def data_parse(self):
 
-        print('\nDATA PARSING...')
+        print('\n-> DATA PARSING...')
         start = get_now()
 
         self.__tiks_init()
         self.__get_positions()
         self.__get_acc2tk()
         self.__accs_init()
-        cost = time_stat(start)
 
-        print('-> parse over, use {:.2f} sec'.format(cost))
+        time_stat(start)
+
 
 
     def __tiks_init(self):
@@ -510,9 +521,8 @@ class AerDataset:
         self.all_tks = all_tks
         self.tiks = tiks
     #
-        cost = time_stat(start)
 
-        print("\n-> tks init over, num of tks:"
+        print("--> tks init over, num of tks:"
               "\n--> inter tks:{}".format(len(inter_tks)),
               "\n--> pass in tks:{}".format(len(passIn_tks)),
               "\n--> pass out tks:{}".format(len(passOut_tks)),
@@ -579,8 +589,7 @@ class AerDataset:
 
 
 
-    def getIntersection(self,tk):
-        return self.tiks[tk]['inter']
+
 
     def getInterTk(self,si,sj):
         # print(si,sj)
