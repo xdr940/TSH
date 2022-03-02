@@ -1,27 +1,27 @@
 
 from utils.yaml_wrapper import YamlHandler
 import argparse
-
+import datetime
 from components.dataloader import AerDataset
 from components.drawer import Drawer
 from components.stator import Stator
-from components.solver import DpSolver
+from components.solver import Solver
 import matplotlib.pyplot as plt
-import numpy as np
-import  pandas as pd
 import os
-
-from utils.tool import time_stat
+from path import Path
+from utils.tool import json2dict,dict2json,to_csv,read_csv
 
 def main(args):
     yml = YamlHandler(args.settings)
     config = yml.read_yaml()
+    instance_save_path = Path("/home/roit/models/sn_instances")/datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+    instance_save_path.mkdir_p()
 
-    print("\n=====DATA=======")
+    print("\n===========DATA==============")
     # load data
     data = AerDataset(config)
     #split data
-    has_solution = data.data_prep()
+    data.data_prep()
 
     # split data reload and process
     data.load_align()
@@ -33,51 +33,64 @@ def main(args):
 
 
 
-    print("\n=====PROBLEM=======")
-
-
-
-    drawer = Drawer()
-    #
-    solver = DpSolver(data)
+    print("\n=============PROBLEM=============")
+    solver = Solver(data)
     solver.build_graph(weights='tk')
 
+    if config['algorithm']=='dp':
 
-    final_solution = solver.dp_run()
-    # final_solution = solver.rss_run()
-    # final_solution = solver.mst_run()
-    #
+        final_solution = solver.dp_run()
+    elif config['algorithm']=='mea':
+
+        final_solution = solver.mea_run()
+    else:
+        final_solution = solver.mst_run()
+
+
     inter_tk_dict = solver.get_inter_tks(final_solution)
-
     final_value = solver.get_selected_alg_base(inter_tk_dict,final_solution)
-    solver.result_stat(final_solution,final_value)
+    # solver.result_stat(final_solution,inter_tk_dict,final_value)
 
-    #
-    #
-    fig1 = drawer.drawAer(data, config=config,position=data.position)
-    # plt.plot(final_value,'r')
-    fig2 = drawer.drawAerSolution(data=data,
-                                  config=config,
-                                  position=data.position,
+    carrier = stator.solution_stat(final_solution,final_value)
+
+
+    print('\n============DRAW===============')
+
+    drawer = Drawer(data,config)
+
+
+
+    plt.figure(figsize=[18,8])
+    ax1=plt.subplot(2,3,4)
+    drawer.drawAer(ax1,position=data.position)
+
+    ax2=plt.subplot(2,3,5)
+    drawer.drawAerSolution(ax2,position=data.position,
                                   final_solution=final_solution,
-                                  inter_tk_dict=inter_tk_dict,
+                                  inter_tk_dict=inter_tk_dict
                                   )
-    fig4 = drawer.drawAccessSolution(data=data,
-                                  config=config,
+
+    plt.subplot(2, 3,6)
+    drawer.drawGraph(solver.G, position=data.position, final_solution=final_solution)
+    # figs = drawer.drawGraph(solver.G,position = data.position)
+
+    ax4=plt.subplot(2, 1, 1)
+    drawer.drawAccessSolution(ax4,
                                   position=data.position,
                                   final_solution=final_solution,
                                   inter_tk_dict=inter_tk_dict,
                              )
-    fig3 = drawer.drawGraph(solver.G,position = data.position,final_solution=final_solution)
-    figs = drawer.drawGraph(solver.G,position = data.position)
-    #
-    #
-    #
 
-    plt.show()
-    #
-    # yml.save_log(data.out_dir_path)
+    print('============SAVE===============')
+    plt.savefig(instance_save_path/'solution.png')
 
+    yml.save_log(instance_save_path/'settings.yaml')
+    dict2json(instance_save_path/'stat_results.json',carrier)
+    to_csv(instance_save_path/'final_value.csv',final_value)
+    read_csv(instance_save_path/'final_value.csv')
+
+
+    print('-> LOGFILE SAVED AS :{}'.format(instance_save_path))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")
