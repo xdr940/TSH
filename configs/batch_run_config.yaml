@@ -1,25 +1,21 @@
-Do: true
+Do: false
 path: "/home/roit/datasets/sn/stk-gen/starlink/harbin"
 dump_stem: "100Cno(dBHz)"
 assigned_units: ['Range (km)']# 处理的unit
 
 
-files: ["range.dat"]
+files: ["range25d.dat"]
 
 access_shuffle: true
 access_portion: [0,1] #[0,0.6]
-time_duration: 500
+time_duration: 402
 
 
+random_seed: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
 
-random_seed: false
-
-
-
+algorithm: ['dp','mea','mst'] #mea,mst
 
 
-#alg
-algorithm: 'mea' #mea,mst
 
 input_metrics: ['Range (km)']
 
@@ -36,5 +32,6 @@ algorithm_base: ['Cno(dBHz)']
 
 data_show_lines: ['Time (second)','Cno(dBHz)']
 #data_show_lines: ['time','Pr(dBW)']
+
 
 
