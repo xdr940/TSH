@@ -59,8 +59,8 @@ class Stator:
               )
 
         carrier['final_solution'] = final_solution
-        carrier['handover times']= final_hop
-        carrier['avg duration'] = total_time / final_hop
+        carrier['handover times']= final_hop-1
+        carrier['avg duration'] = total_time / (final_hop-1)
         carrier['total time'] = int(total_time)
         carrier['duration'] = [int(self.duration[0]),int(self.duration[1])]
         carrier['avg signal'] = np.mean(final_value)
