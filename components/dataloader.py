@@ -37,7 +37,6 @@ class AerDataset:
         self.input_metrics = config['input_metrics']
         self.output_metrics = config['output_metrics']
         self.access_len = 0
-        self.random_seed = config['random_seed']
 
         #time_dir = datetime.datetime.now().strftime("%m-%d-%H:%M")
 
@@ -119,7 +118,7 @@ class AerDataset:
         for item in output_metrics:
             if item =='Cno(dBHz)':
 
-                Cno = EIRP +GT -k-Lf
+                Cno = EIRP +GT -k-Lf-100
 
                 Cno = Cno.rename( item)
                 df = pd.concat([df, Cno], axis=1)
@@ -142,7 +141,7 @@ class AerDataset:
         return df
 
 
-    def data_prep(self,):
+    def data_prep(self):
         '''
         :param :
             self.time_portion
@@ -233,7 +232,7 @@ class AerDataset:
 
 
 
-    def load_align(self):
+    def load_align(self,random_seed=None):
         '''
         :input:
             self.dump_file
@@ -248,7 +247,6 @@ class AerDataset:
 
         time_duration = self.time_duration
         access_portion = self.access_portion
-        random_seed = self.random_seed
 
         df = pd.read_csv(self.dump_file)
         algorithm_base = self.algorithm_base
@@ -257,8 +255,8 @@ class AerDataset:
         df['access'] = np.array(df['access']).astype(str)
         print(df[['Range (km)']+output_metrics].describe())
 
-
-        random.seed(random_seed)
+        if random_seed:
+            random.seed(random_seed)
 
         # time selection
         time_len = int(df['time'].max())
@@ -372,8 +370,6 @@ class AerDataset:
         self.__get_positions()
         self.__get_acc2tk()
         self.__accs_init()
-        del self.output_metrics
-        del self.input_metrics
 
         time_stat(start)
 
@@ -480,7 +476,7 @@ class AerDataset:
 
         all_tks_supremum = list(self.df_align[tk_mask_zip].index)
         #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
-
+        print('--> all tks sup:{}'.format(len(all_tks_supremum)))
 
 
 
@@ -505,7 +501,7 @@ class AerDataset:
             t.start()
             threads.append(t)
         else:
-            each_thread_carry = 50
+            each_thread_carry = 10
             for n in tqdm(range(1,len(all_tks_supremum),each_thread_carry)):
                 if n +each_thread_carry<=len(all_tks_supremum):
                     stop = n + each_thread_carry
