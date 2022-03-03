@@ -9,10 +9,10 @@ class Drawer:
 
         #Aer
         self.data=data
-        self.x_min = int(data.df['time'].min())
-        self.x_max = int(data.df['time'].max())
-        self.y_min = data.df[config['data_show_lines'][-1]].min()
-        self.y_max = data.df[config['data_show_lines'][-1]].max()
+        self.x_min = int(data.df_align.index[0])
+        self.x_max = int(data.df_align.index[-1])
+        self.y_min = data.df_align.min().min()
+        self.y_max = data.df_align.max().max()
         self.margin = self.y_max - self.y_min
 
         self.data_show_lines = config['data_show_lines']
