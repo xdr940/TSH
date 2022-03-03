@@ -9,10 +9,11 @@ import os
 import networkx as nx
 from utils.tool import time_stat,get_now
 from components.AcTik import Tik
+import threading
 import errno
 # m: 卫星数量,
 # n:时刻数量,n-关键时刻数量(n- << n)
-
+from tqdm import tqdm
 class AerDataset:
     def __init__(self,config):
         pass
@@ -29,10 +30,7 @@ class AerDataset:
         for file in config['files']:
             self.files.append(self.path / file)
 
-        #data re-load
-        self.data_prep_path = Path(config['data_prep_path'])  # / time_dir
-        self.data_prep_path.mkdir_p()
-        self.dump_file = self.data_prep_path / "{}-{}.csv".format(config['dump_stem'],config['random_seed'])
+        self.dump_file = self.path / "{}.csv".format(config['dump_stem'])
 
         #data align
         self.algorithm_base = config['algorithm_base']
@@ -374,9 +372,57 @@ class AerDataset:
         self.__get_positions()
         self.__get_acc2tk()
         self.__accs_init()
+        del self.output_metrics
+        del self.input_metrics
 
         time_stat(start)
 
+    def make_tik(self,all_tks_supremum,tiks ,start,stop):
+
+
+        for i in  range(start,stop):
+            tk = all_tks_supremum[i]
+            pass
+            if tk in tiks.keys():
+                return
+
+        # for tk in tqdm( all_tks_supremum):#短板, 时间过长
+
+            row = self.df_align.loc[tk]
+            ss = list(row[True ^ pd.isnull(row)].index)
+            tik =Tik(tk)
+            # tiks[tk]['pass_in'] = []
+            # tiks[tk]['pass_out'] = []
+            # tiks[tk]['inter']=[]
+
+
+            for si in ss:
+                if pd.isnull(self.df_align[si][tk-1]):#前一个时刻,si为nan, si该时刻为pass in
+                    tik.addPass(addPassIn=si)
+                    # tik.passIn.add(si)
+                if pd.isnull(self.df_align[si][tk+1]):# 后一个时刻, si为nan, si该时刻为pass out
+                    tik.addPass(addPassOut=si)
+
+            for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
+                if self.is_equal(si,sj,tk):
+                    if len(tik.getPass('Inter'))==0 : #是首个inter点
+                        tik.addPass(addPassInter={si,sj})
+                        continue#for
+                    if tik.is_inInter(si) is False and tik.is_inInter(sj) is False:# 没有元素存在list里
+                        tik.addPass(addPassInter={si,sj})
+                        continue#for
+
+                        #双方中有一方, 存在list的任意元素中(set), {si,sj}就并到set[i]中
+                    i = 0
+                    while not {si,sj}&tik.getPass('Inter')[i]:
+                        i+=1
+                    tik.getPass('Inter')[i]|={si,sj}
+
+            tik.rebuild()
+            if tik.class_id=='O':
+                pass
+            else:
+                tiks[tk]= tik
 
 
     def __tiks_init(self):
@@ -396,7 +442,6 @@ class AerDataset:
         # 2. 对序号值差分
         # 3. 如果有绝对值大或等于1的, 就说明这行出现函数交点
         # 4. 为了
-        start = get_now()
         argsort = np.argsort(np.array(self.df_align[self.access_names].replace(np.nan,np.inf)))
         tk_mask1 = np.abs(argsort - np.concatenate([argsort[0].reshape(1,argsort.shape[1]),argsort[:-1]],0))>0
 
@@ -440,62 +485,39 @@ class AerDataset:
 
 
         tiks = {}
-        for tk in all_tks_supremum:
+        #边界先处理
+        for tk in [min_tks,max_tks]:
             row = self.df_align.loc[tk]
             ss = list(row[True ^ pd.isnull(row)].index)
-            tik =Tik(tk)
-            # tiks[tk]['pass_in'] = []
-            # tiks[tk]['pass_out'] = []
-            # tiks[tk]['inter']=[]
-
-            if tk ==min_tks:
-                #是否为首时刻
-                [tik.addPass(addPassIn=si) for si in ss]
-
-                pass
-            elif tk ==max_tks:#末时刻
-                [tik.addPass(addPassOut=si) for si in ss]
-                pass
-            else:#中间时刻
-                for si in ss:
-                    if pd.isnull(self.df_align[si][tk-1]):#前一个时刻,si为nan, si该时刻为pass in
-                        tik.addPass(addPassIn=si)
-                        # tik.passIn.add(si)
-                    if pd.isnull(self.df_align[si][tk+1]):# 后一个时刻, si为nan, si该时刻为pass out
-                        tik.addPass(addPassOut=si)
-
-                for si,sj in itertools.combinations(ss,2):#任选两个,查看是否inter
-                    if self.is_equal(si,sj,tk):
-                        if len(tik.getPass('Inter'))==0 : #是首个inter点
-                            tik.addPass(addPassInter={si,sj})
-                            continue#for
-                        if tik.is_inInter(si) is False and tik.is_inInter(sj) is False:# 没有元素存在list里
-                            tik.addPass(addPassInter={si,sj})
-                            continue#for
-
-                            #双方中有一方, 存在list的任意元素中(set), {si,sj}就并到set[i]中
-                        i = 0
-                        while not {si,sj}&tik.getPass('Inter')[i]:
-                            i+=1
-                        tik.getPass('Inter')[i]|={si,sj}
-
-
-
-
-
-
+            tik = Tik(tk)
+            [tik.addPass(addPassIn=si) for si in ss]
             tik.rebuild()
             if tik.class_id=='O':
                 pass
             else:
                 tiks[tk]= tik
 
+        # 多线程处理最耗时部分
+        threads = []
+        if len(all_tks_supremum)<100:
+            pass
+            t = threading.Thread(target=self.make_tik, args=(all_tks_supremum, tiks, 1, len(all_tks_supremum)-1))
+            t.start()
+            threads.append(t)
+        else:
+            each_thread_carry = 50
+            for n in tqdm(range(1,len(all_tks_supremum),each_thread_carry)):
+                if n +each_thread_carry<=len(all_tks_supremum):
+                    stop = n + each_thread_carry
+                else:
+                    stop = len(all_tks_supremum)
+                t = threading.Thread(target=self.make_tik,args=(all_tks_supremum,tiks,n,stop))
+                threads.append(t)
+                t.start()
 
+        for t in threads:
+            t.join()
 
-        #get
-        # inter tks
-        # pass in tks
-        # pass out tks
         inter_tks = []
         passIn_tks = []
         passOut_tks = []
@@ -538,7 +560,7 @@ class AerDataset:
                     if self.acc2tk[si][0] < self.acc2tk[min_si][0]:
                         min_si =si
                 except:
-                    print(si)
+                    print('error',si)
             accs.append(min_si)
             si_names.remove(min_si)
         self.accs = accs
