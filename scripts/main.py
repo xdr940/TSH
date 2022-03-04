@@ -24,7 +24,10 @@ def main(args):
     data.data_prep()
 
     # split data reload and process
-    data.load_align()
+    if config['random_seed']:
+        data.load_align(config['random_seed'])
+    else:
+        data.load_align()
 
     stator = Stator(data)
     stator.data_stat()
@@ -51,7 +54,7 @@ def main(args):
     final_value = solver.get_selected_alg_base(inter_tk_dict,final_solution)
     # solver.result_stat(final_solution,inter_tk_dict,final_value)
 
-    carrier = stator.solution_stat(final_solution,final_value)
+    carrier = stator.solution_stat(final_solution,final_value,algorithm=config['algorithm'])
 
 
     print('\n============DRAW===============')
