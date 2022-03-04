@@ -27,7 +27,7 @@ class Stator:
         print('--> avg passed in:{:.2f}, std:{:.2f}, avg_time_los:{:.2f}'.format(avg_los,std_los,np.mean(durations)))
         print('--> durations:{}'.format(durations))
 
-    def solution_stat(self,final_solution,final_value):
+    def solution_stat(self,final_solution,final_value,algorithm):
 
         print("\n-> PROBLEM STAT")
         carrier ={}
@@ -57,7 +57,7 @@ class Stator:
                                                                                     100 * disconn_time / total_time)
 
               )
-
+        carrier['algorithm'] = algorithm
         carrier['final_solution'] = final_solution
         carrier['handover times']= final_hop-1
         carrier['avg duration'] = total_time / (final_hop-1)
