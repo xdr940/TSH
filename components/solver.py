@@ -132,13 +132,12 @@ class Solver:
 
     def build_graph(self,weights='1'):
         assert(weights in ['1','tk'])
-        start = get_now()
         print("\n-> GRAPH BUILDING")
         #build the graph whose access as the node
 
-        self.G = nx.DiGraph(date='2021-12-22', name='handover')
+        self.G = nx.DiGraph(date='2022-3-3', name='handover')
         self.G.add_nodes_from(self.data.access_names)
-        for tk in self.data.all_tks[1:]:# 根据tks 来建图
+        for tk in tqdm(self.data.all_tks[1:]):# 根据tks 来建图
             tik = self.data.tiks[tk]
 
             if tik.class_id =='I' : #初始点或者结束点
@@ -307,8 +306,6 @@ class Solver:
                 route_dict[si] = 'none'
 
             else:
-                tmp_opt = 0
-                arg_opt=0
                 acc_opt ={}
                 for pre_si in pre_sis:
 
