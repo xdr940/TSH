@@ -27,6 +27,7 @@ def main(args):
     dp_values =[]
     mst_values=[]
     mea_values =[]
+    greedy_values=[]
     results=[]
 
     yml = YamlHandler(args.settings)
@@ -63,6 +64,8 @@ def main(args):
                     mst_values.append(read_csv(item))
                 if 'mea' in item.stem:
                     mea_values.append(read_csv(item))
+                if 'greedy' in item.stem:
+                    greedy_values.append(read_csv(item))
 
             instance_df['algorithm'] = get_np_value(results,'algorithm')
             instance_df['handover times'] = get_np_value(results,'handover times')
@@ -86,10 +89,14 @@ def main(args):
     dp = results_df.query("algorithm== 'dp'").groupby('total time')['avg signal'].median()
     mea = results_df.query("algorithm== 'mea'").groupby('total time')['avg signal'].median()
     mst = results_df.query("algorithm== 'mst'").groupby('total time')['avg signal'].median()
+    greedy = results_df.query("algorithm== 'greedy'").groupby('total time')['avg signal'].median()
+
 
     sns.lineplot(x=boxplot_x,y=dp.values)
     sns.lineplot(x=boxplot_x,y=mea.values)
     sns.lineplot(x=boxplot_x,y=mst.values)
+    sns.lineplot(x=boxplot_x,y=greedy.values)
+
 
     plt.xlabel('Simulation Time (Second)')
     plt.ylabel('RSSI')
@@ -105,10 +112,14 @@ def main(args):
     dp_handover = results_df.query("algorithm== 'dp'").groupby('total time')['handover times'].median()
     mea_handover = results_df.query("algorithm== 'mea'").groupby('total time')['handover times'].median()
     mst_handover = results_df.query("algorithm== 'mst'").groupby('total time')['handover times'].median()
+    greedy_handover = results_df.query("algorithm== 'greedy'").groupby('total time')['handover times'].median()
+
     # sns.lineplot(x=list(range(0,len(mst.values))),y=mst.values)
     sns.lineplot(x=boxplot_x, y=dp_handover.values, palette="Set3")
     sns.lineplot(x=boxplot_x, y=mea_handover.values, palette="Set3")
     sns.lineplot(x=boxplot_x, y=mst_handover.values, palette="Set3")
+    sns.lineplot(x=boxplot_x, y=greedy_handover.values, palette="Set3")
+
 
     plt.xlabel('Simulation Time (Second)')
     plt.ylabel('Handover Times')
