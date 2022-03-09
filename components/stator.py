@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 class Stator:
-    def __init__(self,data):
+    def __init__(self,data,terminal=False):
+        self.terminal=terminal
         self.data = data
         self.duration = (data.df_align.index[0],data.df_align.index[-1])
         pass
     def data_stat(self):
-        print('\n-> DATA STAT')
+        if self.terminal:
+            print('\n-> DATA STAT')
 
         los = np.sum(self.data.df_align>=0,axis=1)
         std_los = los.std()
@@ -23,13 +25,15 @@ class Stator:
 
         # time_end - time_start
         period = self.data.df_align.index[-1] - self.data.df_align.index[0]
-        print('--> pass num:{} for {} second, {:.2f} passed per avg hour'.format(total_pass_num,period,total_pass_num/period*3600))
-        print('--> avg passed in:{:.2f}, std:{:.2f}, avg_time_los:{:.2f}'.format(avg_los,std_los,np.mean(durations)))
-        print('--> durations:{}'.format(durations))
+        if self.terminal:
+
+            print('--> pass num:{} for {} second, {:.2f} passed per avg hour'.format(total_pass_num,period,total_pass_num/period*3600))
+            print('--> avg passed in:{:.2f}, std:{:.2f}, avg_time_los:{:.2f}'.format(avg_los,std_los,np.mean(durations)))
+            print('--> durations:{}'.format(durations))
 
     def solution_stat(self,final_solution,final_value,algorithm):
-
-        print("\n-> PROBLEM STAT")
+        if self.terminal:
+            print("\n-> PROBLEM STAT")
         carrier ={}
 
         final_hop = len(final_solution)
@@ -46,21 +50,23 @@ class Stator:
                 disconn_time += (self.data.getInterTk('none', final_solution[i + 1]) - self.data.getInterTk(
                     final_solution[i - 1], 'none'))
                 disconn_times += 1
+        final_hop-=1
+        if self.terminal:
 
-        print('--> solution stat' +
-              '\n--> final solution:\t{}'.format(final_solution) +
-              # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
-              '\n--> handover times: \t{}, disconn times:{}'.format(final_hop, disconn_times) +
-              '\n--> avg duration:\t{:.2f}(s).'.format(total_time / final_hop) +
-              '\n--> avg alg base:\t{:.2f}.'.format(np.mean(final_value)) +
-              '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time, disconn_time,
-                                                                                    100 * disconn_time / total_time)
+            print('--> solution stat' +
+                  '\n--> final solution:\t{}'.format(final_solution) +
+                  # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
+                  '\n--> handover times: \t{}, disconn times:{}'.format(final_hop, disconn_times) +
+                  '\n--> avg duration:\t{:.2f}(s).'.format(total_time / (final_hop)) +
+                  '\n--> avg alg base:\t{:.2f}.'.format(np.mean(final_value)) +
+                  '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time, disconn_time,
+                                                                                        100 * disconn_time / total_time)
 
-              )
+                  )
         carrier['algorithm'] = algorithm
         carrier['final_solution'] = final_solution
-        carrier['handover times']= final_hop-1
-        carrier['avg duration'] = total_time / (final_hop-1)
+        carrier['handover times']= final_hop
+        carrier['avg duration'] = total_time / final_hop
         carrier['total time'] = int(total_time)
         carrier['duration'] = [int(self.duration[0]),int(self.duration[1])]
         carrier['avg signal'] = np.mean(final_value)

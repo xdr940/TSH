@@ -15,11 +15,11 @@ import errno
 # n:时刻数量,n-关键时刻数量(n- << n)
 from tqdm import tqdm
 class AerDataset:
-    def __init__(self,config):
+    def __init__(self,config,terminal=False):
         pass
         self.path = Path(config['path'])
 
-
+        self.terminal = terminal
 
         #data prep
         self.doOrNot = bool(config['Do'])
@@ -154,7 +154,8 @@ class AerDataset:
         '''
         if self.doOrNot is False:
             return
-        print("\nDATA PRE-PROCCESSING ...")
+        if self.terminal:
+            print("\nDATA PRE-PROCCESSING ...")
         #input
 
         files = self.files
@@ -170,7 +171,8 @@ class AerDataset:
         output_columns =   ['access','idx','time']+assigned_units
 
         dfs = []
-        print("-> regexing ...")
+        if self.terminal:
+            print("-> regexing ...")
         for idx,(item,unit) in enumerate(zip(files,assigned_units)):# 载入距离, 速度, 等不同value其他文件
 
 
@@ -206,7 +208,9 @@ class AerDataset:
 
             dfs.append(df)
 
-        print('-> regex over')
+        if self.terminal:
+
+            print('-> regex over')
 
 
         df = pd.concat(dfs,axis=1)
@@ -226,8 +230,8 @@ class AerDataset:
             input_metrics=input_metrics,
             output_metrics=output_metrics
         )
-
-        print('-> data saved at:{}'.format(self.dump_file))
+        if self.terminal:
+            print('-> data saved at:{}'.format(self.dump_file))
         df.to_csv(self.dump_file, index=False)
 
 
@@ -243,7 +247,8 @@ class AerDataset:
             self.data_description = data_description
 
         '''
-        print("\nDATA RE-LOADING AND ALIGN")
+        if self.terminal:
+            print("\nDATA RE-LOADING AND ALIGN")
 
         time_duration = self.time_duration
         access_portion = self.access_portion
@@ -253,7 +258,9 @@ class AerDataset:
         output_metrics = self.output_metrics
         df['time'] = np.array(df['time']).astype(np.int32)
         df['access'] = np.array(df['access']).astype(str)
-        print(df[['Range (km)']+output_metrics].describe())
+
+        if self.terminal:
+            print(df[['Range (km)']+output_metrics].describe())
 
         if random_seed:
             random.seed(random_seed)
@@ -362,8 +369,8 @@ class AerDataset:
 
 
     def data_parse(self):
-
-        print('\n-> DATA PARSING...')
+        if self.terminal:
+            print('\n-> DATA PARSING...')
         start = get_now()
 
         self.__tiks_init()
@@ -476,7 +483,8 @@ class AerDataset:
 
         all_tks_supremum = list(self.df_align[tk_mask_zip].index)
         #min tks 是最开始的全局时刻, 可能在0-24*3600 之间
-        print('--> all tks sup:{}'.format(len(all_tks_supremum)))
+        if self.terminal:
+            print('--> all tks sup:{}'.format(len(all_tks_supremum)))
 
 
 
@@ -539,12 +547,13 @@ class AerDataset:
         self.all_tks = all_tks
         self.tiks = tiks
     #
+        if self.terminal:
 
-        print("--> tks init over, num of tks:"
-              "\n--> inter tks:{}".format(len(inter_tks)),
-              "\n--> pass in tks:{}".format(len(passIn_tks)),
-              "\n--> pass out tks:{}".format(len(passOut_tks)),
-              "\n--> all tks:{}".format(len(all_tks)))
+            print("--> tks init over, num of tks:"
+                  "\n--> inter tks:{}".format(len(inter_tks)),
+                  "\n--> pass in tks:{}".format(len(passIn_tks)),
+                  "\n--> pass out tks:{}".format(len(passOut_tks)),
+                  "\n--> all tks:{}".format(len(all_tks)))
 
     def __accs_init(self):
         accs=[]

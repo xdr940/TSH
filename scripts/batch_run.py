@@ -10,11 +10,16 @@ import matplotlib.pyplot as plt
 import os
 from path import Path
 from utils.tool import json2dict,dict2json,to_csv,read_csv
-
+from tqdm import tqdm
 def main(args):
     yml = YamlHandler(args.settings)
+    out_stem = args.out_stem
     config = yml.read_yaml()
-    instance_save_path = Path("/home/roit/models/sn_instances")/datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+    if not out_stem:
+        instance_save_path = Path("/home/roit/models/sn_instances")/datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+    else:
+        instance_save_path = Path("/home/roit/models/sn_instances")/out_stem
+
     instance_save_path.mkdir_p()
 
     print("\n===========DATA==============")
@@ -24,7 +29,7 @@ def main(args):
     data.data_prep()
 
     # split data reload and process
-    for seed in config['random_seed']:
+    for seed in tqdm(config['random_seed']):
         try:
             data.load_align()
             stator = Stator(data)
@@ -38,10 +43,10 @@ def main(args):
 
         # print("\n=============PROBLEM=============")
             solver = Solver(data)
-            for alg in config['algorithm']:
+            solver.build_graph(weights='tk')
 
+            for alg in config['algorithm']:
                 if alg=='dp':
-                    solver.build_graph(weights='tk')
 
                     final_solution = solver.dp_run()
                 elif alg=='mea':
@@ -51,6 +56,9 @@ def main(args):
                     solver.build_graph(weights='1')
 
                     final_solution = solver.mst_run()
+                elif alg =='greedy':
+
+                    final_solution = solver.greedy_run()
                 else:
                     print('error in alg')
                     exit(-1)
@@ -81,6 +89,8 @@ if __name__ == "__main__":
         parser.add_argument("--settings", default='../configs/batch_run_config.yaml')
     else:
         parser.add_argument("--settings", default='./configs/batch_run_config.yaml')
+
+    parser.add_argument("--out_stem",default=None)
 
     args = parser.parse_args()
     main(args)
