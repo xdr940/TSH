@@ -16,8 +16,9 @@ class TimeStamp:
 
 
 class Solver:
-    def __init__(self,data,alg_base="Max - Range (km)"):
+    def __init__(self,data,alg_base="Max - Range (km)",terminal=False):
         self.data = data
+        self.terminal = terminal
         #tk2acc
         #acc2tk
         #data.access_name
@@ -29,6 +30,7 @@ class Solver:
 
     def s_prev(self,si):
         return self.__s_prev(si)
+
     def __s_prev(self,i_access,tj=None):
         '''
         等价于节点的父节点
@@ -81,7 +83,8 @@ class Solver:
         # else:
         return prevs
 
-
+    def __s_next(self,si):
+        return list(self.G.succ[si].keys())
 
     def __trave(self):
         '''
@@ -99,8 +102,8 @@ class Solver:
         #     listoflist = dict(nx.bfs_successors(self.G,head)).values()
         #     for ls in listoflist:
         #         trave_list.extend(ls)
-
-        print("trave as :{}".format(self.data.accs))
+        if self.terminal:
+            print("trave as :{}".format(self.data.accs))
         return self.data.accs
 
 
@@ -132,7 +135,8 @@ class Solver:
 
     def build_graph(self,weights='1'):
         assert(weights in ['1','tk'])
-        print("\n-> GRAPH BUILDING")
+        if self.terminal:
+            print("\n-> GRAPH BUILDING")
         #build the graph whose access as the node
 
         self.G = nx.DiGraph(date='2022-3-3', name='handover')
@@ -191,8 +195,9 @@ class Solver:
         #from none
         #sub graph heads
         self.get_roots_and_leaves2()
-        print("--> graph finished")
-        print(self.G)
+        if self.terminal:
+            print("--> graph finished")
+            print(self.G)
     def get_roots_and_leaves2(self):
         pass
         roots=[]
@@ -205,8 +210,10 @@ class Solver:
 
         self.roots = roots
         self.leaves = leaves
-        print("--> graph roots num:{} {}".format(len(self.roots), self.roots))
-        print("--> graph leaves num:{} {}".format(len(self.leaves), self.leaves))
+        if self.terminal:
+
+            print("--> graph roots num:{} {}".format(len(self.roots), self.roots))
+            print("--> graph leaves num:{} {}".format(len(self.leaves), self.leaves))
 
     def get_roots_and_leaves(self):
         roots = []
@@ -238,10 +245,10 @@ class Solver:
 
         self.roots = roots
         self.leaves = leaves
+        if self.terminal:
+            print("-> graph roots num:{}\n {}".format(len(self.roots),self.roots))
+            print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
-
-        print("-> graph roots num:{}\n {}".format(len(self.roots),self.roots))
-        print("-> graph leaves num:{} \n{}".format(len(self.leaves),self.leaves))
 
 
     def mst_run(self):
@@ -256,8 +263,10 @@ class Solver:
                 except:
                     continue
                     pass
-        print('roots:{}'.format(self.roots))
-        print('leaves:{}'.format(self.leaves))
+        if self.terminal:
+
+            print('roots:{}'.format(self.roots))
+            print('leaves:{}'.format(self.leaves))
         root_leaf = sorted(paths.values(),reverse=True,key=lambda x:len(x))
         final_solutoin = self.max_cover(paths,mode='mst')
         root_leaf[0].insert(0,'none')
@@ -265,7 +274,28 @@ class Solver:
         # print(nx.shortest_path(tmp_graph, source='s2520', target='s2519'))
         # path = nx.all_pairs_shortest_path(self.G)
         # print(path)
+    def greedy_run(self):
+        final_solution=[]
 
+
+
+        x_ks = self.roots
+        while x_ks:
+            max_intg =0
+            max_x =None
+            for x in x_ks:
+                if len(final_solution):
+                    tj, tj_next = self.data.getInterTk(final_solution[-1],x), self.data.acc2tk[x][-1]
+                else:
+                    tj, tj_next = self.data.acc2tk[x][0], self.data.acc2tk[x][-1]
+                tmp_intg = self.__integ(x, tj, tj_next)
+                if max_intg<tmp_intg:
+                    max_intg = tmp_intg
+                    max_x = x
+            final_solution.append(max_x)
+            x_ks = list(self.G.succ[max_x].keys())
+        final_solution.insert(0,'none')
+        return final_solution
 
     def dp_run(self):
         def check_start_stamp(access):
@@ -277,8 +307,9 @@ class Solver:
             else:
                 return check_start_stamp(route_dict[access])
         # self.get_roots_and_leaves()
+        if self.terminal:
 
-        print("\nPROBLEM SOVING BY DP")
+            print("\nPROBLEM SOVING BY DP")
 
         hop_dict={}
         opt_dict={}
@@ -348,9 +379,10 @@ class Solver:
             paths[leaf]=paths[leaf][1:]
             paths[paths[leaf][0],leaf] = paths[leaf]
             del paths[leaf]
-        print('--> paths:')
-        for path in paths.values():
-            print(path)
+        if self.terminal:
+            print('--> paths:')
+            for path in paths.values():
+                print(path)
         final_solution = self.max_cover(paths,mode='dp')#最大覆盖方法筛选
         return final_solution
 
@@ -543,7 +575,9 @@ class Solver:
         最强信号选择
         :return:
         '''
-        print("\n-> PROBLEM SOVING BY RSS")
+        if self.terminal:
+
+            print("\n-> PROBLEM SOVING BY RSS")
         start = get_now()
 
         tmp_list = []
