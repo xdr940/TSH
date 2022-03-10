@@ -56,7 +56,7 @@ def main(args):
                     solver.build_graph(weights='1')
 
                     final_solution = solver.mst_run()
-                elif alg =='greedy':
+                elif alg =='gd':
 
                     final_solution = solver.greedy_run()
                 else:
@@ -72,8 +72,8 @@ def main(args):
 
 
 
-                dict2json(instance_save_path/'{}_{}_stat_results.json'.format(alg,seed),carrier)
-                to_csv(instance_save_path/'{}_{}_final_value.csv'.format(alg,seed),final_value)
+                dict2json(instance_save_path/'{}_{:03d}.json'.format(alg,seed),carrier)# stat results
+                to_csv(instance_save_path/'{}_{:03d}.csv'.format(alg,seed),final_value)# final value
             del stator
         except:
             continue

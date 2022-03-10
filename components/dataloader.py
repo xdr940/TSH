@@ -631,5 +631,72 @@ class AerDataset:
                 if {si,sj}&inter =={si,sj}:
                     return tk
 
+from utils.tool import json2dict,dict2json,to_csv,read_csv
+def get_np_value(results,name):
+    arr=[]
+    for k,v in results.items():
+        arr.append(v[name])
+    return arr
+class ResultDataset:
+    def __init__(self,instances_path,stems,ignore_dirs,ignore_words):
+        self.instances_path =instances_path
+        self.stems = stems
+        self.ignore_dirs = ignore_dirs
+        self.ignore_words = ignore_words
 
+    def load(self):
+        results ={}
+        if len(self.stems) > 0:
+            dirs = [self.instances_path / stem for stem in self.stems]
+        else:
+            dirs = self.instances_path.dirs()
+
+        results_df = pd.DataFrame(columns=['algorithm', 'handover times', 'total time', 'avg signal'])
+        for dir in dirs:  # 每个dir 是一个时间的sim
+            if dir.stem in self.ignore_dirs:
+                continue
+            if dir.stem[:-4] in self.ignore_words:  # 放弃一些城市
+                continue
+            print(dir)
+            instance_df = pd.DataFrame()
+            if not dir.exists():
+                os.error('wrong in {}'.format(dir))
+                continue
+            try:
+
+                json_files = dir.files('*.json')
+                csv_files = dir.files('*.csv')
+                json_files.sort()
+                csv_files.sort()
+                for json_file, csv_file in zip(json_files, csv_files):
+                    if json_file.stem != csv_file.stem:
+                        os.error("json, csv did not match!")
+                        exit(-1)
+                    procedure_name = json_file.stem
+                    results[procedure_name] = json2dict(json_file)
+                    results[procedure_name]['signal_value'] = read_csv(csv_file)
+                instance_df['procedure_name'] = np.array(list(results.keys()))
+
+                instance_df['algorithm'] = get_np_value(results, 'algorithm')
+                instance_df['handover times'] = get_np_value(results, 'handover times')
+                instance_df['total time'] = get_np_value(results, 'total time')
+                instance_df['avg signal'] = get_np_value(results, 'avg signal')
+                instance_df['avg duration'] = get_np_value(results, 'avg duration')
+                results_df = pd.concat([results_df, instance_df], axis=0)
+
+            except:
+                os.error('wrong read in {}'.format(dir))
+        results_df.index = np.linspace(start=0, stop=len(results_df) - 1, num=len(results_df))
+
+
+        self.df = results_df
+        self.simulation_durations = list(results_df['total time'].value_counts().index)
+        self.algs = list(results_df['algorithm'].value_counts().index)
+
+
+    def get_value(self,name):
+        ret_value = {}
+        for alg in self.algs:
+            ret_value[alg] = self.df.query("algorithm== '{}'".format(alg)).groupby('total time')[name].median()
+        return ret_value
 
