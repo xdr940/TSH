@@ -237,11 +237,11 @@ class StatDrawer:
     def draw_rssi(self):
         plt.xlabel('Simulation Time (Second)')
         plt.ylabel('RSSI')
-        fig1 = sns.boxplot(x="total time", y="avg signal",
+        fig1 = sns.boxplot(x="sim_duration", y="avg_signal",
                            hue="algorithm", palette=self.config_palette.values(),hue_order = self.config_palette.keys(),
-                           data=self.data.df)
+                           data=self.data.total_dfs)
 
-        signals_value = self.data.get_value('avg signal')
+        signals_value = self.data.get_value('avg_signal')
         for alg, c in self.config_palette.items():
             sns.lineplot(
                 x=range(len(self.data.simulation_durations)),
@@ -251,11 +251,11 @@ class StatDrawer:
     def draw_num_handovers(self):
         plt.xlabel('Simulation Time (Second)')
         plt.ylabel('Handover Times')
-        num_handovers = self.data.get_value('handover times')
+        num_handovers = self.data.get_value('num_handovers')
 
-        sns.boxplot(x="total time", y="handover times",
+        sns.boxplot(x="sim_duration", y="num_handovers",
                     hue="algorithm",hue_order=self.config_palette.keys(), palette=self.config_palette.values(),
-                    data=self.data.df)
+                    data=self.data.total_dfs)
         for alg, c in self.config_palette.items():
 
             sns.lineplot(x=range(len(self.data.simulation_durations)),
@@ -264,6 +264,6 @@ class StatDrawer:
     def draw_last_durations(self):
         plt.xlabel('Simulation Time (Second)')
         plt.ylabel('Avg Access Span /Satllite (Second)')
-        sns.lineplot(data=self.data.df,x="total time",y="avg duration",hue='algorithm',hue_order=self.config_palette.keys(),palette=self.config_palette.values())
+        sns.lineplot(data=self.data.total_dfs,x="sim_duration",y="avg_hand_duration",hue='algorithm',hue_order=self.config_palette.keys(),palette=self.config_palette.values())
 
         sns.despine(offset=10, trim=False)

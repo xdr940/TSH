@@ -44,7 +44,7 @@ def main(args):
         # print("\n=============PROBLEM=============")
             solver = Solver(data)
             solver.build_graph(weights='tk')
-
+            final_solution=None
             for alg in config['algorithm']:
                 if alg=='dp':
 
@@ -64,16 +64,16 @@ def main(args):
                     exit(-1)
 
 
-                inter_tk_dict = solver.get_inter_tks(final_solution)
+                inter_tk_dict,inter_tk_list = solver.get_inter_tks(final_solution)
                 final_value = solver.get_selected_alg_base(inter_tk_dict,final_solution)
                 # solver.result_stat(final_solution,inter_tk_dict,final_value)
 
-                carrier = stator.solution_stat(final_solution,final_value,algorithm=alg)
+                carrier = stator.solution_stat(final_solution,inter_tk_list,final_value,algorithm=alg)
 
 
+                to_csv(instance_save_path/'{:03d}_{}.csv'.format(seed,alg),final_value)# final value
 
-                dict2json(instance_save_path/'{}_{:03d}.json'.format(alg,seed),carrier)# stat results
-                to_csv(instance_save_path/'{}_{:03d}.csv'.format(alg,seed),final_value)# final value
+                dict2json(instance_save_path/'{:03d}_{}.json'.format(seed,alg),carrier)# stat results
             del stator
         except:
             continue

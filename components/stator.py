@@ -31,7 +31,7 @@ class Stator:
             print('--> avg passed in:{:.2f}, std:{:.2f}, avg_time_los:{:.2f}'.format(avg_los,std_los,np.mean(durations)))
             print('--> durations:{}'.format(durations))
 
-    def solution_stat(self,final_solution,final_value,algorithm):
+    def solution_stat(self,final_solution,inter_tk_list,final_value,algorithm):
         if self.terminal:
             print("\n-> PROBLEM STAT")
         carrier ={}
@@ -56,18 +56,19 @@ class Stator:
             print('--> solution stat' +
                   '\n--> final solution:\t{}'.format(final_solution) +
                   # '\n--> opt value:\t{:.2f}'.format(final_opt_value)+
-                  '\n--> handover times: \t{}, disconn times:{}'.format(final_hop, disconn_times) +
-                  '\n--> avg duration:\t{:.2f}(s).'.format(total_time / (final_hop)) +
+                  '\n--> num_handovers: \t{}, disconn times:{}'.format(final_hop, disconn_times) +
+                  '\n--> avg_hand_duration:\t{:.2f}(s).'.format(total_time / (final_hop)) +
                   '\n--> avg alg base:\t{:.2f}.'.format(np.mean(final_value)) +
-                  '\n--> total time:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time, disconn_time,
+                  '\n--> sim_duration:\t{:.2f}(s), disconn time:\t{:.2f}({:.2f}%)'.format(total_time, disconn_time,
                                                                                         100 * disconn_time / total_time)
 
                   )
         carrier['algorithm'] = algorithm
         carrier['final_solution'] = final_solution
-        carrier['handover times']= final_hop
-        carrier['avg duration'] = total_time / final_hop
-        carrier['total time'] = int(total_time)
-        carrier['duration'] = [int(self.duration[0]),int(self.duration[1])]
-        carrier['avg signal'] = np.mean(final_value)
+        carrier['num_handovers']= final_hop
+        carrier['avg_hand_duration'] = total_time / final_hop
+        carrier['sim_duration'] = int(total_time)
+        carrier['start_end'] = [int(self.duration[0]),int(self.duration[1])]
+        carrier['avg_signal'] = np.mean(final_value)
+        carrier['handover_instants'] = inter_tk_list
         return carrier

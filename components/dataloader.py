@@ -510,7 +510,7 @@ class AerDataset:
             threads.append(t)
         else:
             each_thread_carry = 10
-            for n in tqdm(range(1,len(all_tks_supremum),each_thread_carry)):
+            for n in range(1,len(all_tks_supremum),each_thread_carry):
                 if n +each_thread_carry<=len(all_tks_supremum):
                     stop = n + each_thread_carry
                 else:
@@ -630,13 +630,9 @@ class AerDataset:
             for inter in inters:
                 if {si,sj}&inter =={si,sj}:
                     return tk
-
+from components.measurement import Procedure,get_df
 from utils.tool import json2dict,dict2json,to_csv,read_csv
-def get_np_value(results,name):
-    arr=[]
-    for k,v in results.items():
-        arr.append(v[name])
-    return arr
+
 class ResultDataset:
     def __init__(self,instances_path,stems,ignore_dirs,ignore_words):
         self.instances_path =instances_path
@@ -645,20 +641,21 @@ class ResultDataset:
         self.ignore_words = ignore_words
 
     def load(self):
-        results ={}
         if len(self.stems) > 0:
             dirs = [self.instances_path / stem for stem in self.stems]
         else:
             dirs = self.instances_path.dirs()
 
-        results_df = pd.DataFrame(columns=['algorithm', 'handover times', 'total time', 'avg signal'])
+        total_dfs = pd.DataFrame(columns=['algorithm', 'num_handovers', 'sim_duration', 'avg_signal'])
+        total_precedures={}
         for dir in dirs:  # 每个dir 是一个时间的sim
             if dir.stem in self.ignore_dirs:
                 continue
             if dir.stem[:-4] in self.ignore_words:  # 放弃一些城市
                 continue
+            sim_duration = dir.stem[-4:]
+            procedures = {}
             print(dir)
-            instance_df = pd.DataFrame()
             if not dir.exists():
                 os.error('wrong in {}'.format(dir))
                 continue
@@ -673,30 +670,39 @@ class ResultDataset:
                         os.error("json, csv did not match!")
                         exit(-1)
                     procedure_name = json_file.stem
-                    results[procedure_name] = json2dict(json_file)
-                    results[procedure_name]['signal_value'] = read_csv(csv_file)
-                instance_df['procedure_name'] = np.array(list(results.keys()))
 
-                instance_df['algorithm'] = get_np_value(results, 'algorithm')
-                instance_df['handover times'] = get_np_value(results, 'handover times')
-                instance_df['total time'] = get_np_value(results, 'total time')
-                instance_df['avg signal'] = get_np_value(results, 'avg signal')
-                instance_df['avg duration'] = get_np_value(results, 'avg duration')
-                results_df = pd.concat([results_df, instance_df], axis=0)
+                    procedure = Procedure(
+                        procedure_name=procedure_name,
+                        procedure_dict=json2dict(json_file),
+                        procedure_value=read_csv(csv_file)
+                    )
+                    procedures[procedure_name]=procedure
+                    # results[procedure_name] = json2dict(json_file)
+                    # results[procedure_name]['signal_value'] = read_csv(csv_file)
+                    # ProcedureSet(procedure_name,,)
+
+                instance_df = get_df(procedures)# for draw
+                total_dfs = pd.concat([total_dfs, instance_df], axis=0)
+
+
 
             except:
                 os.error('wrong read in {}'.format(dir))
-        results_df.index = np.linspace(start=0, stop=len(results_df) - 1, num=len(results_df))
+            total_precedures[sim_duration] = procedures
 
+        total_dfs.index = np.linspace(start=0, stop=len(total_dfs) - 1, num=len(total_dfs))
 
-        self.df = results_df
-        self.simulation_durations = list(results_df['total time'].value_counts().index)
-        self.algs = list(results_df['algorithm'].value_counts().index)
+        self.total_dfs = total_dfs # for drawer
+        self.total_precedures = total_precedures
+        self.simulation_durations = list(total_dfs['sim_duration'].value_counts().index)
+        self.algs = list(total_dfs['algorithm'].value_counts().index)
 
 
     def get_value(self,name):
         ret_value = {}
         for alg in self.algs:
-            ret_value[alg] = self.df.query("algorithm== '{}'".format(alg)).groupby('total time')[name].median()
+            ret_value[alg] = self.total_dfs.query("algorithm== '{}'".format(alg)).groupby('sim_duration')[name].median()
         return ret_value
 
+    def create_user_demands(self):
+        pass

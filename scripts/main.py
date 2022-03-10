@@ -39,8 +39,9 @@ def main(args):
     print("\n=============PROBLEM=============")
     solver = Solver(data)
     solver.build_graph(weights='tk')
-
-    if config['algorithm']=='dp':
+    if config['algorithm'] =='greedy':
+        final_solution = solver.greedy_run()
+    elif config['algorithm']=='dp':
 
         final_solution = solver.dp_run()
     elif config['algorithm']=='mea':
@@ -85,15 +86,19 @@ def main(args):
                              )
 
     print('============SAVE===============')
-    plt.savefig(instance_save_path/'solution.png')
+    if config['save']:
+        plt.savefig(instance_save_path/'solution.png')
 
-    yml.save_log(instance_save_path/'settings.yaml')
-    dict2json(instance_save_path/'stat_results.json',carrier)
-    to_csv(instance_save_path/'final_value.csv',final_value)
-    read_csv(instance_save_path/'final_value.csv')
+        yml.save_log(instance_save_path/'settings.yaml')
+        dict2json(instance_save_path/'stat_results.json',carrier)
+        to_csv(instance_save_path/'final_value.csv',final_value)
+        read_csv(instance_save_path/'final_value.csv')
+        print('-> LOGFILE SAVED AS :{}'.format(instance_save_path))
+
+    else:
+        plt.show()
 
 
-    print('-> LOGFILE SAVED AS :{}'.format(instance_save_path))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")

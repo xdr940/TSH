@@ -607,10 +607,12 @@ class Solver:
    
     def get_inter_tks(self,final_solution):
         inter_tk_dict = {}
+        inter_tk_list = []
         for s_prev, s_next in zip(final_solution[1:-1], final_solution[2:]):
-            inter_tk_dict[s_prev, s_next] = self.data.getInterTk(s_prev, s_next)
-
-        return  inter_tk_dict
+            tk = self.data.getInterTk(s_prev, s_next)
+            inter_tk_dict[s_prev, s_next] = tk
+            inter_tk_list.append(tk)
+        return  inter_tk_dict,inter_tk_list
 
 
 
@@ -661,8 +663,6 @@ class Solver:
         return pd.concat(arrs,axis=0)
         # pass
 
-    def _get_inter_tks(self,solution):
-        pass
 
 
     def __path_tk(self,path,headOrTail):

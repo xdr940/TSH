@@ -3,15 +3,13 @@
 '''
 from utils.yaml_wrapper import YamlHandler
 import argparse
-import numpy as np
 
 import matplotlib.pyplot as plt
 import os
-import pandas as pd
 from path import Path
-import seaborn as sns
 from components.dataloader import ResultDataset
 from components.drawer import StatDrawer
+from components.measurement import Measurer
 
 def main(args):
 
@@ -24,13 +22,16 @@ def main(args):
         ignore_words=config['ignore_words']
     )
     data.load()
+    measurer = Measurer()
+    calls = [[200,1000,800],[1000,1500,500],[500,1900,1400]]
+    measurer.P_drop(data.total_precedures['0500'])
 
 
 
 
     drawer = StatDrawer(data,config['palette'])
 
-
+    user_demands = data.create_user_demands()
     # FIG1
     plt.figure(figsize=(16,4))
     plt.subplot(1,3,1)
