@@ -33,3 +33,8 @@ Terminal-Satellite Link assignment(Satellite Handover)
 ![](./fig/angle.png)
 
 
+### measurement
+
+掉话率测量如图所示
+
+![](./fig/pdrop.png)
