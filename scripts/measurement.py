@@ -7,7 +7,7 @@ import argparse
 import matplotlib.pyplot as plt
 import os
 from path import Path
-from components.dataloader import ResultDataset
+from dataset import ResultDataset,CallDataset
 from components.drawer import StatDrawer
 from components.measurement import Measurer
 
@@ -22,8 +22,9 @@ def main(args):
         ignore_words=config['ignore_words']
     )
     data.load()
+
+    call_set = CallDataset()
     measurer = Measurer()
-    calls = [[200,1000,800],[1000,1500,500],[500,1900,1400]]
     measurer.P_drop(data.total_precedures['0500'])
 
 

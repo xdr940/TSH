@@ -2,7 +2,7 @@
 from utils.yaml_wrapper import YamlHandler
 import argparse
 import datetime
-from components.dataloader import AerDataset
+from dataset import AerDataset
 from components.drawer import Drawer
 from components.stator import Stator
 from components.solver import Solver
@@ -58,7 +58,7 @@ def main(args):
                     final_solution = solver.mst_run()
                 elif alg =='gd':
 
-                    final_solution = solver.greedy_run()
+                    final_solution = solver.gd_run()
                 else:
                     print('error in alg')
                     exit(-1)

@@ -274,7 +274,7 @@ class Solver:
         # print(nx.shortest_path(tmp_graph, source='s2520', target='s2519'))
         # path = nx.all_pairs_shortest_path(self.G)
         # print(path)
-    def greedy_run(self):
+    def gd_run(self):
         final_solution=[]
 
 
