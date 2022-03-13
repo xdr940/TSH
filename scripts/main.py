@@ -2,7 +2,7 @@
 from utils.yaml_wrapper import YamlHandler
 import argparse
 import datetime
-from components.dataloader import AerDataset
+from dataset import AerDataset
 from components.drawer import Drawer
 from components.stator import Stator
 from components.solver import Solver
@@ -19,7 +19,7 @@ def main(args):
 
     print("\n===========DATA==============")
     # load data
-    data = AerDataset(config)
+    data = AerDataset(config,terminal=True)
     #split data
     data.data_prep()
 
@@ -29,7 +29,7 @@ def main(args):
     else:
         data.load_align()
 
-    stator = Stator(data)
+    stator = Stator(data,terminal=True)
     stator.data_stat()
 
     data.data_parse()
@@ -37,10 +37,10 @@ def main(args):
 
 
     print("\n=============PROBLEM=============")
-    solver = Solver(data)
+    solver = Solver(data,terminal=True)
     solver.build_graph(weights='tk')
-    if config['algorithm'] =='greedy':
-        final_solution = solver.greedy_run()
+    if config['algorithm'] =='gd':
+        final_solution = solver.gd_run()
     elif config['algorithm']=='dp':
 
         final_solution = solver.dp_run()
@@ -51,11 +51,11 @@ def main(args):
         final_solution = solver.mst_run()
 
 
-    inter_tk_dict = solver.get_inter_tks(final_solution)
+    inter_tk_dict,inter_tk_list = solver.get_inter_tks(final_solution)
     final_value = solver.get_selected_alg_base(inter_tk_dict,final_solution)
     # solver.result_stat(final_solution,inter_tk_dict,final_value)
 
-    carrier = stator.solution_stat(final_solution,final_value,algorithm=config['algorithm'])
+    carrier = stator.solution_stat(final_solution,inter_tk_list,final_value,algorithm=config['algorithm'])
 
 
     print('\n============DRAW===============')
