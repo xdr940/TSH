@@ -18,39 +18,7 @@ class Measurer:
         for k,v in self.procedures.items():
             start_end_list.append(tuple(v.start_end))
         return start_end_list
-    def Pdrop_run(self,procedures):# for a single dir, city-duration
-        print('at pdrop')
-        procedure_names = list(procedures.keys())
-        procedure_names.sort()
-        length = len(procedure_names)
 
-        i=0
-        user_demands=CallDataset(None)
-
-        total_dfs = pd.DataFrame(columns=['start','end']+list(self.alg_cnt.keys()))
-
-
-        while i < length: # all procedures # multi-threading here
-            j=i
-            while procedure_names[j][:3] ==procedure_names[i][:3]: #batch procedures
-                j+=1
-            batch_procedures = [v for k, v in procedures.items() if k in procedure_names[i:j]]
-
-
-            start,end = batch_procedures[0].start_end
-            calls = user_demands.get_calls(start,end)
-
-            # procedure_batch with call_batch (did not equal)
-            algs_vec =[]
-            batch_df=pd.DataFrame(columns=total_dfs.columns)
-            for procedure in batch_procedures:
-                vec,handover = procedure.inject(calls)
-                algs_vec.append(vec)
-            batch_df[['start','end']] = calls
-            batch_df[list(alg_cnt.keys())] = np.array(algs_vec).T
-            total_dfs = pd.concat([total_dfs, batch_df], axis=0)
-
-            print('ok')
 
     def get_batch_procedure(self):
 
