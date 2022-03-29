@@ -1,10 +1,27 @@
 instances_path: "/home/roit/models/sn_instances"
 
-stems: ['500','600','700','800','900','1000','1500','2000']
-#stems: ['500']
+#stems: ['500','600','700','800','900','1000','1500','2000']
+#stems: [
+#  'beijing0500','beijing1000','beijing1500','beijing2000',
+#  'chengdu0500','chengdu1000','chengdu1500','chengdu2000',
+#  'shenzhen0500','shenzhen1000','shenzhen1500','shenzhen2000'
+#]
+#stems: ['220308-201733','220308-203605','220308-204912','220308-211227','220308-212045']
+stems: ['harbin2000']
 
 #ignore: ['400','600','700','800','900']
-#stems: [
-ignore: ['400']
+#stems: []
+ignore_dirs: ['olds']
+ignore_words: ['chengdu','beijing','shenzhen']
+
+
+palette: {'mea':'r',
+           'mst':'g',
+           'dp':'b',
+           'gd':'c'}
+
+
+#ignore_words: ['chengdu','shenzhen']
+
 #  '220304-103451',
 #  '220304-105254']
