@@ -1,0 +1,18 @@
+instances_path: "/home/roit/models/sn_instances"
+
+#stems: ['harbin0600','harbin0700','harbin0800','harbin0900','harbin1000','harbin1500','harbin2000']
+
+stems: [] # none means input all
+ignore_dirs: []
+ignore_words: ['beijing','harbin','shenzhen']
+#ignore_words: []
+
+
+
+palette: {'mea':'r',
+           'mst':'g',
+           'dp':'b',
+           'gd':'c'}
+
+
+

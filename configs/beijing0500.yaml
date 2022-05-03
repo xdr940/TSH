@@ -1,5 +1,5 @@
 Do: false
-path: "/home/roit/datasets/sn/stk-gen/starlink/chengdu"
+path: "/home/roit/datasets/sn/stk-gen/starlink/beijing"
 dump_stem: "100Cno(dBHz)"
 assigned_units: ['Range (km)']# 处理的unit
 
@@ -8,7 +8,7 @@ files: ["range45d.dat"]
 
 access_shuffle: true
 access_portion: [0,1] #[0,0.6]
-time_duration: 2000
+time_duration: 500
 
 
 random_seed: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]

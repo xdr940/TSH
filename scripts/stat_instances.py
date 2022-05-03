@@ -36,10 +36,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="stk-conn")
-    if os.path.exists('../configs/statDraw.yaml'):
-        parser.add_argument("--settings", default='../configs/statDraw.yaml')
+    if os.path.exists('../configs/stat_instances.yaml'):
+        parser.add_argument("--settings", default='../configs/stat_instances.yaml')
     else:
-        parser.add_argument("--settings", default='./configs/statDraw.yaml')
+        parser.add_argument("--settings", default='./configs/stat_instances.yaml')
 
     args = parser.parse_args()
     main(args)
