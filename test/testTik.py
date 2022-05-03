@@ -1,9 +1,12 @@
 import unittest
-from components.dataloader import Tik
+from components.AcTik import Tik
 class TestTik(unittest.TestCase):
     def test_tik(self):
         tiks =[]
-        tik = Tik(stamp=8640,passIn=['s2420','s2520'])
-        tik.classify()
+        tik = Tik(stamp=8640)
+        tik.addPass(addPassIn=['s2520','s2420'])
+        tik.rebuild()
         print(tik)
-        pass
+        self.assertEqual(tik.is_inInter('s2420'),False)
+        self.assertEqual(tik.is_in('s2420'),True)
+

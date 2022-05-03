@@ -6,8 +6,8 @@ import pandas as pd
 def time_stat(last_end):
     end = time.time()
     running_time = end - last_end
-    print('--> time cost : %.5f sec' % running_time)
-    return end
+    # print('--> time cost : %.5f sec' % running_time)
+    return running_time
 
 def get_now():
     return time.time()
