@@ -121,12 +121,12 @@ def get_df(procedures):
 
 
     instance_df = pd.DataFrame()
-    instance_df['procedure_name'] = np.array([procedure.name for procedure in procedures])
-    instance_df['algorithm'] = [procedure.algorithm for procedure in procedures]
-    instance_df['num_handovers'] = [procedure.num_handovers for procedure in procedures]
-    instance_df['sim_duration'] = [procedure.sim_duration for procedure in procedures]
-    instance_df['avg_signal'] = [procedure.avg_signal for procedure in procedures]
-    instance_df['avg_hand_duration'] = [procedure.avg_hand_duration for procedure in procedures]
+    instance_df['procedure_name'] = np.array([v.name for k,v in procedures.items()])
+    instance_df['algorithm'] = [v.algorithm for k,v in procedures.items()]
+    instance_df['num_handovers'] = [v.num_handovers for k,v in procedures.items()]
+    instance_df['sim_duration'] = [v.sim_duration for k,v in procedures.items()]
+    instance_df['avg_signal'] = [v.avg_signal for k,v in procedures.items()]
+    instance_df['avg_hand_duration'] = [v.avg_hand_duration for k,v in procedures.items()]
 
 
 
